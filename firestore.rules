@@ -92,5 +92,39 @@ service cloud.firestore {
       allow create, update: if isAdminOrLeader();
       allow delete: if hasRole('admin');
     }
+    
+    // Events collection - church events calendar and management
+    match /events/{eventId} {
+      // Read permissions:
+      // - Admins and leaders can read all events
+      // - Members can read public and members-only events
+      // - Events without visibility field default to public
+      allow read: if isAuthenticated() && (
+        isAdminOrLeader() ||
+        !('visibility' in resource.data) ||
+        resource.data.visibility == 'public' ||
+        resource.data.visibility == 'members'
+      );
+      // Only admins and leaders can create, update, or delete events
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Event registrations collection - user registrations for events
+    match /eventRegistrations/{registrationId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        isAdminOrLeader()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        isAdminOrLeader()
+      );
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        hasRole('admin')
+      );
+    }
   }
 }

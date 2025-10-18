@@ -20,11 +20,15 @@ import {
   CheckCircle,
   Camera,
   Search,
-  Filter
+  Filter,
+  Download,
+  FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const Attendance = () => {
   const { isLeader } = useAuth();
@@ -268,6 +272,92 @@ const Attendance = () => {
     return attendanceRecords.some(r => r.memberId === memberId);
   };
 
+  const exportSessionToPDF = () => {
+    if (!selectedSession) {
+      toast.error('Please select a session first');
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text('Greater Works Attendance Report', 14, 20);
+    
+    // Session Info
+    doc.setFontSize(12);
+    doc.text(`Session: ${selectedSession.name}`, 14, 30);
+    doc.text(`Date: ${format(new Date(selectedSession.date), 'MMMM dd, yyyy')}`, 14, 37);
+    doc.text(`Event Type: ${selectedSession.eventType}`, 14, 44);
+    doc.text(`Department: ${selectedSession.department}`, 14, 51);
+    doc.text(`Total Attendees: ${selectedSession.attendeeCount || 0}`, 14, 58);
+    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 14, 65);
+    
+    // Get present members
+    const presentMembers = members.filter(m => isPresent(m.id));
+    
+    // Attendance table
+    const tableData = presentMembers.map((member, index) => [
+      index + 1,
+      member.memberId,
+      member.fullName,
+      member.department,
+      member.phoneNumber,
+      'Present'
+    ]);
+    
+    doc.autoTable({
+      startY: 75,
+      head: [['#', 'Member ID', 'Full Name', 'Department', 'Phone', 'Status']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [212, 175, 55] },
+      styles: { fontSize: 9 }
+    });
+    
+    doc.save(`attendance-${selectedSession.name}-${format(new Date(selectedSession.date), 'yyyy-MM-dd')}.pdf`);
+    toast.success('Attendance report exported successfully');
+  };
+
+  const exportSessionToCSV = () => {
+    if (!selectedSession) {
+      toast.error('Please select a session first');
+      return;
+    }
+
+    const presentMembers = members.filter(m => isPresent(m.id));
+    
+    const headers = ['Member ID', 'Full Name', 'Department', 'Phone Number', 'Email', 'Membership Type', 'Status'];
+    const rows = presentMembers.map(member => [
+      member.memberId,
+      member.fullName,
+      member.department,
+      member.phoneNumber,
+      member.email || 'N/A',
+      member.membershipType,
+      'Present'
+    ]);
+    
+    const csvContent = [
+      `Session: ${selectedSession.name}`,
+      `Date: ${selectedSession.date}`,
+      `Event Type: ${selectedSession.eventType}`,
+      `Total Attendees: ${selectedSession.attendeeCount || 0}`,
+      '',
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${selectedSession.name}-${format(new Date(selectedSession.date), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    
+    toast.success('Attendance report exported successfully');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -423,16 +513,34 @@ const Attendance = () => {
       {showMarkModal && selectedSession && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{selectedSession.name}</h2>
-                <p className="text-sm text-gray-600">
-                  {format(new Date(selectedSession.date), 'MMMM dd, yyyy')} • {selectedSession.attendeeCount || 0} present
-                </p>
+            <div className="border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedSession.name}</h2>
+                  <p className="text-sm text-gray-600">
+                    {format(new Date(selectedSession.date), 'MMMM dd, yyyy')} • {selectedSession.attendeeCount || 0} present
+                  </p>
+                </div>
+                <button onClick={() => setShowMarkModal(false)} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              <button onClick={() => setShowMarkModal(false)} className="text-gray-500 hover:text-gray-700">
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={exportSessionToCSV}
+                  className="btn-secondary flex items-center space-x-2 text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export CSV</span>
+                </button>
+                <button
+                  onClick={exportSessionToPDF}
+                  className="btn-primary flex items-center space-x-2 text-sm"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Export PDF</span>
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">

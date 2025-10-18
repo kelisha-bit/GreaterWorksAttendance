@@ -19,7 +19,8 @@ import {
   Cake,
   Trophy,
   HardDrive,
-  Image
+  Image,
+  Calendar
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -45,11 +46,13 @@ const Layout = () => {
     { name: 'My Department', href: '/department-dashboard', icon: Briefcase, leaderOnly: true },
     { name: 'Members', href: '/members', icon: Users },
     { name: 'Visitors', href: '/visitors', icon: UserPlus, leaderOnly: true },
+    { name: 'Events Calendar', href: '/events', icon: Calendar },
     { name: 'Celebrations', href: '/celebrations', icon: Cake },
     { name: 'Achievements', href: '/achievements', icon: Trophy },
     { name: 'Photo Gallery', href: '/gallery', icon: Image },
     { name: 'Attendance', href: '/attendance', icon: ClipboardCheck },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
+    { name: 'Advanced Analytics', href: '/analytics', icon: TrendingUp },
     { name: 'Contributions', href: '/contributions', icon: Wallet, leaderOnly: true },
     { name: 'Financial Reports', href: '/financial-reports', icon: TrendingUp, leaderOnly: true },
     { name: 'Backup & Data', href: '/backup', icon: HardDrive, adminOnly: true },

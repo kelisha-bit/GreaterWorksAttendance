@@ -163,39 +163,70 @@ const Reports = () => {
     const doc = new jsPDF();
     
     // Title
-    doc.setFontSize(18);
-    doc.text('Greater Works Attendance Report', 14, 20);
+    doc.setFontSize(20);
+    doc.setTextColor(212, 175, 55);
+    doc.text('Greater Works City Church', 14, 20);
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Attendance Report', 14, 28);
     
     // Date range
-    doc.setFontSize(12);
-    doc.text(`Report Period: ${dateRange === 'week' ? 'This Week' : dateRange === 'month' ? 'This Month' : 'All Time'}`, 14, 30);
-    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 14, 37);
-    
-    // Stats
-    doc.setFontSize(14);
-    doc.text('Summary Statistics', 14, 50);
     doc.setFontSize(11);
-    doc.text(`Total Sessions: ${stats.totalSessions}`, 14, 58);
-    doc.text(`Total Attendance: ${stats.totalAttendance}`, 14, 65);
-    doc.text(`Average Attendance: ${stats.averageAttendance}`, 14, 72);
-    doc.text(`Attendance Rate: ${stats.attendanceRate}%`, 14, 79);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Report Period: ${dateRange === 'week' ? 'This Week' : dateRange === 'month' ? 'This Month' : 'All Time'}`, 14, 36);
+    doc.text(`Department: ${selectedDepartment}`, 14, 42);
+    doc.text(`Generated: ${format(new Date(), 'MMMM dd, yyyy HH:mm')}`, 14, 48);
+    
+    // Stats box
+    doc.setFillColor(212, 175, 55);
+    doc.rect(14, 55, 182, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.text('SUMMARY STATISTICS', 18, 62);
+    doc.setFontSize(9);
+    doc.text(`Total Sessions: ${stats.totalSessions}`, 18, 70);
+    doc.text(`Total Attendance: ${stats.totalAttendance}`, 70, 70);
+    doc.text(`Avg Attendance: ${stats.averageAttendance}`, 18, 77);
+    doc.text(`Attendance Rate: ${stats.attendanceRate}%`, 70, 77);
     
     // Sessions table
+    doc.setTextColor(0, 0, 0);
     const filteredSessions = getFilteredSessions();
     const tableData = filteredSessions.map(session => [
       format(new Date(session.date), 'MMM dd, yyyy'),
       session.name,
       session.eventType,
+      session.department,
       session.attendeeCount || 0
     ]);
     
     doc.autoTable({
-      startY: 90,
-      head: [['Date', 'Session Name', 'Event Type', 'Attendance']],
+      startY: 95,
+      head: [['Date', 'Session Name', 'Event Type', 'Department', 'Attendance']],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [212, 175, 55] }
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [212, 175, 55],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      styles: { fontSize: 9 }
     });
+    
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.getWidth() / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
     
     doc.save(`attendance-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast.success('Report exported successfully');
@@ -203,26 +234,39 @@ const Reports = () => {
 
   const exportToCSV = () => {
     const filteredSessions = getFilteredSessions();
-    const headers = ['Date', 'Session Name', 'Event Type', 'Department', 'Attendance'];
+    const headers = ['Date', 'Session Name', 'Event Type', 'Department', 'Attendance', 'Day of Week'];
     const rows = filteredSessions.map(session => [
       session.date,
-      session.name,
+      `"${session.name}"`,
       session.eventType,
       session.department,
-      session.attendeeCount || 0
+      session.attendeeCount || 0,
+      format(new Date(session.date), 'EEEE')
     ]);
     
     const csvContent = [
+      '"Greater Works City Church - Attendance Report"',
+      `"Report Period: ${dateRange === 'week' ? 'This Week' : dateRange === 'month' ? 'This Month' : 'All Time'}"`,
+      `"Department: ${selectedDepartment}"`,
+      `"Generated: ${format(new Date(), 'MMMM dd, yyyy HH:mm')}"`,
+      '',
+      '"Summary Statistics"',
+      `"Total Sessions",${stats.totalSessions}`,
+      `"Total Attendance",${stats.totalAttendance}`,
+      `"Average Attendance",${stats.averageAttendance}`,
+      `"Attendance Rate",${stats.attendanceRate}%`,
+      '',
       headers.join(','),
       ...rows.map(row => row.join(','))
     ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `attendance-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
+    window.URL.revokeObjectURL(url);
     
     toast.success('Report exported successfully');
   };

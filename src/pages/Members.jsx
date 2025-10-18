@@ -36,8 +36,24 @@ const Members = () => {
     email: '',
     department: '',
     membershipType: 'Adult',
+    membershipStatus: 'Active',
     dateOfBirth: '',
+    dateJoined: new Date().toISOString().split('T')[0],
+    salvationDate: '',
     weddingAnniversary: '',
+    address: '',
+    city: '',
+    occupation: '',
+    maritalStatus: '',
+    homeCell: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    baptismStatus: '',
+    baptismDate: '',
+    previousChurch: '',
+    skills: '',
+    ministryInterests: '',
+    notes: '',
     profilePhoto: null
   });
 
@@ -54,6 +70,18 @@ const Members = () => {
   ];
 
   const membershipTypes = ['Adult', 'Youth', 'Child', 'Visitor'];
+
+  const membershipStatuses = ['Active', 'Inactive', 'Transferred', 'Deceased'];
+
+  const maritalStatuses = ['Single', 'Married', 'Divorced', 'Widowed'];
+
+  const baptismStatuses = ['Not Baptized', 'Water Baptized', 'Holy Spirit Baptized', 'Both'];
+
+  const generateTitheEnvelopeNumber = () => {
+    const year = new Date().getFullYear().toString().slice(-2);
+    const random = Math.floor(Math.random() * 9000) + 1000;
+    return `TE${year}${random}`;
+  };
 
   useEffect(() => {
     fetchMembers();
@@ -127,20 +155,37 @@ const Members = () => {
         email: formData.email || '',
         department: formData.department,
         membershipType: formData.membershipType,
+        membershipStatus: formData.membershipStatus || 'Active',
         dateOfBirth: formData.dateOfBirth || '',
+        dateJoined: formData.dateJoined || new Date().toISOString().split('T')[0],
+        salvationDate: formData.salvationDate || '',
         weddingAnniversary: formData.weddingAnniversary || '',
+        address: formData.address || '',
+        city: formData.city || '',
+        occupation: formData.occupation || '',
+        maritalStatus: formData.maritalStatus || '',
+        homeCell: formData.homeCell || '',
+        emergencyContactName: formData.emergencyContactName || '',
+        emergencyContactPhone: formData.emergencyContactPhone || '',
+        baptismStatus: formData.baptismStatus || '',
+        baptismDate: formData.baptismDate || '',
+        previousChurch: formData.previousChurch || '',
+        skills: formData.skills || '',
+        ministryInterests: formData.ministryInterests || '',
+        notes: formData.notes || '',
         profilePhotoURL: photoURL,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
       if (editMode && selectedMember) {
-        // Update existing member
+        // Update existing member (keep existing tithe envelope number)
         await updateDoc(doc(db, 'members', selectedMember.id), memberData);
         toast.success('Member updated successfully');
       } else {
-        // Add new member
+        // Add new member with auto-generated IDs
         memberData.memberId = generateMemberId();
+        memberData.titheEnvelopeNumber = generateTitheEnvelopeNumber();
         await addDoc(collection(db, 'members'), memberData);
         toast.success('Member added successfully');
       }
@@ -162,8 +207,24 @@ const Members = () => {
       email: member.email || '',
       department: member.department,
       membershipType: member.membershipType,
+      membershipStatus: member.membershipStatus || 'Active',
       dateOfBirth: member.dateOfBirth || '',
+      dateJoined: member.dateJoined || '',
+      salvationDate: member.salvationDate || '',
       weddingAnniversary: member.weddingAnniversary || '',
+      address: member.address || '',
+      city: member.city || '',
+      occupation: member.occupation || '',
+      maritalStatus: member.maritalStatus || '',
+      homeCell: member.homeCell || '',
+      emergencyContactName: member.emergencyContactName || '',
+      emergencyContactPhone: member.emergencyContactPhone || '',
+      baptismStatus: member.baptismStatus || '',
+      baptismDate: member.baptismDate || '',
+      previousChurch: member.previousChurch || '',
+      skills: member.skills || '',
+      ministryInterests: member.ministryInterests || '',
+      notes: member.notes || '',
       profilePhoto: null
     });
     setEditMode(true);
@@ -201,8 +262,24 @@ const Members = () => {
       email: '',
       department: '',
       membershipType: 'Adult',
+      membershipStatus: 'Active',
       dateOfBirth: '',
+      dateJoined: new Date().toISOString().split('T')[0],
+      salvationDate: '',
       weddingAnniversary: '',
+      address: '',
+      city: '',
+      occupation: '',
+      maritalStatus: '',
+      homeCell: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      baptismStatus: '',
+      baptismDate: '',
+      previousChurch: '',
+      skills: '',
+      ministryInterests: '',
+      notes: '',
       profilePhoto: null
     });
   };
@@ -299,6 +376,7 @@ const Members = () => {
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Department</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
@@ -311,6 +389,17 @@ const Members = () => {
                     <td className="py-3 px-4 text-sm text-gray-600">{member.phoneNumber}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.department}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.membershipType}</td>
+                    <td className="py-3 px-4 text-sm">
+                      <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                        member.membershipStatus === 'Active' ? 'bg-green-100 text-green-800' :
+                        member.membershipStatus === 'Inactive' ? 'bg-gray-100 text-gray-800' :
+                        member.membershipStatus === 'Transferred' ? 'bg-blue-100 text-blue-800' :
+                        member.membershipStatus === 'Deceased' ? 'bg-red-100 text-red-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {member.membershipStatus || 'Active'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <button
@@ -445,11 +534,46 @@ const Members = () => {
                 </div>
 
                 <div>
+                  <label className="label">Membership Status *</label>
+                  <select
+                    value={formData.membershipStatus}
+                    onChange={(e) => setFormData({ ...formData, membershipStatus: e.target.value })}
+                    className="input-field"
+                    required
+                  >
+                    {membershipStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className="label">Date of Birth (Optional)</label>
                   <input
                     type="date"
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    className="input-field"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Date Joined Church *</label>
+                  <input
+                    type="date"
+                    value={formData.dateJoined}
+                    onChange={(e) => setFormData({ ...formData, dateJoined: e.target.value })}
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Salvation Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={formData.salvationDate}
+                    onChange={(e) => setFormData({ ...formData, salvationDate: e.target.value })}
                     className="input-field"
                   />
                 </div>
@@ -463,6 +587,158 @@ const Members = () => {
                     className="input-field"
                   />
                 </div>
+
+                <div>
+                  <label className="label">Marital Status (Optional)</label>
+                  <select
+                    value={formData.maritalStatus}
+                    onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="">Select Status</option>
+                    {maritalStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Occupation (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.occupation}
+                    onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g., Teacher, Engineer"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">City (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g., Accra, Kumasi"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Home Cell/Group (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.homeCell}
+                    onChange={(e) => setFormData({ ...formData, homeCell: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g., East Legon Cell"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Baptism Status (Optional)</label>
+                  <select
+                    value={formData.baptismStatus}
+                    onChange={(e) => setFormData({ ...formData, baptismStatus: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="">Select Status</option>
+                    {baptismStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Baptism Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={formData.baptismDate}
+                    onChange={(e) => setFormData({ ...formData, baptismDate: e.target.value })}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Emergency Contact Name (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.emergencyContactName}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                    className="input-field"
+                    placeholder="Full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Emergency Contact Phone (Optional)</label>
+                  <input
+                    type="tel"
+                    value={formData.emergencyContactPhone}
+                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                    className="input-field"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Address (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="input-field"
+                  placeholder="Street address or location"
+                />
+              </div>
+
+              <div>
+                <label className="label">Previous Church (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.previousChurch}
+                  onChange={(e) => setFormData({ ...formData, previousChurch: e.target.value })}
+                  className="input-field"
+                  placeholder="Name of previous church attended"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Skills/Talents (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.skills}
+                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g., Singing, Teaching, IT"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Ministry Interests (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.ministryInterests}
+                    onChange={(e) => setFormData({ ...formData, ministryInterests: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g., Choir, Youth, Media"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Notes (Optional)</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="input-field"
+                  rows="3"
+                  placeholder="Any additional information about the member..."
+                />
               </div>
 
               <div>

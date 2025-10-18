@@ -7,13 +7,15 @@ import EnhancedDashboard from './pages/EnhancedDashboard';
 import DepartmentDashboard from './pages/DepartmentDashboard';
 import MyPortal from './pages/MyPortal';
 import Members from './pages/Members';
-import MemberProfile from './pages/MemberProfile';
+import EnhancedMemberProfile from './pages/EnhancedMemberProfile';
 import Visitors from './pages/Visitors';
 import VisitorProfile from './pages/VisitorProfile';
+import EventCalendar from './pages/EventCalendar';
 import Celebrations from './pages/Celebrations';
 import Achievements from './pages/Achievements';
 import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
+import AdvancedAnalytics from './pages/AdvancedAnalytics';
 import Contributions from './pages/Contributions';
 import FinancialReports from './pages/FinancialReports';
 import BackupManager from './pages/BackupManager';
@@ -42,13 +44,15 @@ function AppRoutes() {
           <Route path="department-dashboard" element={<DepartmentDashboard />} />
           <Route path="my-portal" element={<MyPortal />} />
           <Route path="members" element={<Members />} />
-          <Route path="members/:memberId" element={<MemberProfile />} />
+          <Route path="members/:memberId" element={<EnhancedMemberProfile />} />
           <Route path="visitors" element={<Visitors />} />
           <Route path="visitors/:visitorId" element={<VisitorProfile />} />
+          <Route path="events" element={<EventCalendar />} />
           <Route path="celebrations" element={<Celebrations />} />
           <Route path="achievements" element={<Achievements />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="analytics" element={<AdvancedAnalytics />} />
           <Route path="contributions" element={<Contributions />} />
           <Route path="financial-reports" element={<FinancialReports />} />
           <Route path="backup" element={<BackupManager />} />
