@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check user role
+    function hasRole(role) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    // Helper function to check if user is admin or leader
+    function isAdminOrLeader() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'leader'];
+    }
+    
+    // Users collection - stores user roles and permissions
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update, delete: if hasRole('admin');
+    }
+    
+    // Members collection - church member profiles
+    match /members/{memberId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Attendance sessions collection
+    match /attendance_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Attendance records collection
+    match /attendance_records/{recordId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Departments collection
+    match /departments/{departmentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if hasRole('admin');
+    }
+    
+    // Contributions collection - financial records
+    match /contributions/{contributionId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Visitors collection - visitor management and tracking
+    match /visitors/{visitorId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Special occasions collection - birthdays, anniversaries, celebrations
+    match /special_occasions/{occasionId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    // Achievements collection - badges and attendance incentives
+    match /achievements/{achievementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Auto-awarded by system
+    }
+    
+    // Backups collection - backup history and metadata
+    match /backups/{backupId} {
+      allow read: if hasRole('admin');
+      allow write: if hasRole('admin');
+    }
+    
+    // Photo gallery collection - event photos and member photos
+    match /photo_gallery/{photoId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+  }
+}

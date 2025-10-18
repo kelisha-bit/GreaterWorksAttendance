@@ -1,7 +1,0 @@
-{
-  "name": "Copy of Greater Works Attendance Tracker",
-  "description": "A mobile-friendly attendance tracking app to record and manage attendance for church services, departments, and events for Greater Works City Church, Ghana.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

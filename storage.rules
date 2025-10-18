@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Profile photos
+    match /profile_photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                     request.auth.uid == userId &&
+                     request.resource.size < 5 * 1024 * 1024 && // 5MB max
+                     request.resource.contentType.matches('image/.*');
+    }
+    
+    // Reports and exports
+    match /reports/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Photo gallery - event and member photos
+    match /gallery/{category}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                     request.resource.size < 10 * 1024 * 1024 && // 10MB max
+                     request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+  }
+}

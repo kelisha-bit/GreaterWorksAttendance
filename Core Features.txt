@@ -1,0 +1,97 @@
+Core Features**
+
+Member Management
+
+* Register new members with details:
+
+  * Full Name
+  * Gender
+  * Phone Number
+  * Email (optional)
+  * Department / Ministry
+  * Membership Type (Adult, Youth, Child, Visitor)
+  * Membership ID (auto-generated)
+  * Profile Photo (optional)
+* Search and view member profiles.
+
+ Attendance Tracking
+
+* Create new **attendance sessions** (e.g., “Sunday Service – Oct 20, 2025”).
+* Mark attendance manually or via QR code scanning.
+* Filter attendance by:
+
+  * Date
+  * Event Type (Sunday Service, Prayer Meeting, Department Meeting, etc.)
+  * Department / Ministry
+* View statistics such as:
+
+  * Total Members Present
+  * Total Absent
+  * Percentage Attendance
+
+ Reports & Insights
+
+* Generate attendance summaries by week, month, or department.
+* Visual charts showing attendance growth trends.
+* Export attendance data to CSV or PDF.
+
+ Notifications (Optional Phase 2)
+
+* Push notifications to remind leaders to take attendance.
+* SMS or in-app messages for absentee follow-up.
+
+
+
+Backend (Firestore)**
+
+Cloud Firestore** for:
+
+* `members` collection → stores member profiles.
+* `attendance_sessions` collection → stores attendance events.
+* `attendance_records` collection → tracks individual attendance per session.
+
+Firestore Security Rules:
+
+* Only authenticated admins can create or edit records.
+* Readers can view attendance summaries but not personal contact data.
+
+
+Authentication
+
+* Firebase Auth (Email/Password or Google Sign-In)
+* Role-based access:
+
+  * **Admin:** Can create sessions, manage members, and view reports.
+  * **Leader:** Can mark attendance for their department.
+  * **Viewer:** Can only view summaries and reports.
+
+---
+
+Frontend
+
+* Built with React (with TailwindCSS + Firebase SDK).
+* Clean church branding (white & gold theme).
+* Dashboard showing:
+
+  * Upcoming services
+  * Recent attendance statistics
+  * Quick buttons (Add Session, Register Member, View Reports)
+
+---
+
+Tech Stack
+
+* **Frontend:** Flutter / React
+* **Backend:** Firebase Firestore + Firebase Auth + Cloud Functions
+* **Storage:** Firebase Storage (for profile photos)
+* **Hosting:** Firebase Hosting (if web version is included)
+
+---
+
+Extra Features (Optional Enhancements)**
+
+* QR Code Attendance: Generate unique member QR codes for quick scanning.
+* Multi-branch support (if church has campuses).
+* Integration with Google Sheets or Supabase for backups.
+* Offline attendance mode with sync when back online.
+
