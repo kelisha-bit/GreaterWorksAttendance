@@ -320,13 +320,22 @@ const Members = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Member Management</h1>
         {isLeader && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center justify-center space-x-2"
-          >
-            <UserPlus className="w-5 h-5" />
-            <span>Add Member</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate('/members/import')}
+              className="btn-secondary flex items-center justify-center space-x-2"
+            >
+              <Upload className="w-5 h-5" />
+              <span>Import Members</span>
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary flex items-center justify-center space-x-2"
+            >
+              <UserPlus className="w-5 h-5" />
+              <span>Add Member</span>
+            </button>
+          </div>
         )}
       </div>
 

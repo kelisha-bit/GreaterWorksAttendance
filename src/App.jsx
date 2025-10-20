@@ -8,6 +8,7 @@ import DepartmentDashboard from './pages/DepartmentDashboard';
 import MyPortal from './pages/MyPortal';
 import Members from './pages/Members';
 import EnhancedMemberProfile from './pages/EnhancedMemberProfile';
+import MemberImport from './pages/MemberImport';
 import Visitors from './pages/Visitors';
 import VisitorProfile from './pages/VisitorProfile';
 import EventCalendar from './pages/EventCalendar';
@@ -44,6 +45,7 @@ function AppRoutes() {
           <Route path="department-dashboard" element={<DepartmentDashboard />} />
           <Route path="my-portal" element={<MyPortal />} />
           <Route path="members" element={<Members />} />
+          <Route path="members/import" element={<MemberImport />} />
           <Route path="members/:memberId" element={<EnhancedMemberProfile />} />
           <Route path="visitors" element={<Visitors />} />
           <Route path="visitors/:visitorId" element={<VisitorProfile />} />
