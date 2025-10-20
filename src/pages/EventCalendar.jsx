@@ -395,11 +395,13 @@ const EventCalendar = () => {
                 {format(new Date(date), 'EEEE, MMMM d, yyyy')}
               </h3>
               <div className="space-y-2">
-                {dateEvents.map(event => (
+                {dateEvents.map((event, eventIndex) => (
                   <button
                     key={event.id}
                     onClick={() => setSelectedEvent(event)}
-                    className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-church-gold hover:bg-gray-50 transition-colors"
+                    className={`w-full text-left p-3 rounded-lg border border-gray-200 hover:border-church-gold hover:bg-gray-50 transition-colors animate-fade-in-up ${
+                      eventIndex < 20 ? `stagger-${eventIndex + 1}` : 'stagger-max'
+                    }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

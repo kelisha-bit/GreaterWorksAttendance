@@ -20,7 +20,8 @@ import {
   Trophy,
   HardDrive,
   Image,
-  Calendar
+  Calendar,
+  Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -56,6 +57,7 @@ const Layout = () => {
     { name: 'Contributions', href: '/contributions', icon: Wallet, leaderOnly: true },
     { name: 'Financial Reports', href: '/financial-reports', icon: TrendingUp, leaderOnly: true },
     { name: 'Backup & Data', href: '/backup', icon: HardDrive, adminOnly: true },
+    { name: 'User Roles', href: '/user-roles', icon: Shield, adminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

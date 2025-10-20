@@ -429,12 +429,17 @@ const Visitors = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredVisitors.map((visitor) => {
+                {filteredVisitors.map((visitor, index) => {
                   const daysSince = getDaysSinceVisit(visitor.visitDate);
                   const needsUrgentFollowUp = daysSince > 7 && visitor.followUpStatus === 'Pending';
                   
                   return (
-                    <tr key={visitor.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr 
+                      key={visitor.id} 
+                      className={`border-b border-gray-100 hover:bg-gray-50 animate-fade-in-up ${
+                        index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                      }`}
+                    >
                       <td className="py-3 px-4 text-sm font-mono text-gray-600">{visitor.visitorId}</td>
                       <td className="py-3 px-4 text-sm font-medium text-gray-900">{visitor.fullName}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{visitor.phoneNumber}</td>

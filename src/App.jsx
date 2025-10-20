@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
+import OfflineIndicator from './components/OfflineIndicator';
+import { offlineStorage } from './utils/offlineStorage';
 import Login from './pages/Login';
 import EnhancedDashboard from './pages/EnhancedDashboard';
 import DepartmentDashboard from './pages/DepartmentDashboard';
@@ -22,6 +25,7 @@ import FinancialReports from './pages/FinancialReports';
 import BackupManager from './pages/BackupManager';
 import PhotoGallery from './pages/PhotoGallery';
 import Settings from './pages/Settings';
+import UserRoles from './pages/UserRoles';
 
 const PrivateRoute = ({ children }) => {
   const { currentUser } = useAuth();
@@ -59,6 +63,7 @@ function AppRoutes() {
           <Route path="financial-reports" element={<FinancialReports />} />
           <Route path="backup" element={<BackupManager />} />
           <Route path="gallery" element={<PhotoGallery />} />
+          <Route path="user-roles" element={<UserRoles />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
@@ -67,9 +72,29 @@ function AppRoutes() {
 }
 
 function App() {
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/service-worker.js')
+        .then((registration) => {
+          console.log('Service Worker registered:', registration);
+        })
+        .catch((error) => {
+          console.error('Service Worker registration failed:', error);
+        });
+    }
+
+    // Initialize offline storage
+    offlineStorage.init().catch((error) => {
+      console.error('Failed to initialize offline storage:', error);
+    });
+  }, []);
+
   return (
     <AuthProvider>
       <AppRoutes />
+      <OfflineIndicator />
       <Toaster 
         position="top-right"
         toastOptions={{

@@ -21,6 +21,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const login = async (email, password) => {
@@ -31,21 +32,37 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await signOut(auth);
     setUserRole(null);
+    setUserData(null);
   };
 
-  const register = async (email, password, userData) => {
+  const register = async (email, password, userInfo) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
     // Create user document in Firestore
     await setDoc(doc(db, 'users', user.uid), {
       email: email,
-      role: userData.role || 'viewer',
-      name: userData.name || '',
+      role: userInfo.role || 'viewer',
+      name: userInfo.name || '',
       createdAt: new Date().toISOString()
     });
     
     return userCredential;
+  };
+
+  const refreshUserRole = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserRole(data.role);
+        setUserData(data);
+      }
+    } catch (error) {
+      console.error('Error refreshing user role:', error);
+    }
   };
 
   useEffect(() => {
@@ -57,16 +74,21 @@ export const AuthProvider = ({ children }) => {
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role);
+            const data = userDoc.data();
+            setUserRole(data.role);
+            setUserData(data);
           } else {
             setUserRole('viewer'); // Default role
+            setUserData(null);
           }
         } catch (error) {
           console.error('Error fetching user role:', error);
           setUserRole('viewer');
+          setUserData(null);
         }
       } else {
         setUserRole(null);
+        setUserData(null);
       }
       
       setLoading(false);
@@ -78,9 +100,11 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userRole,
+    userData,
     login,
     logout,
     register,
+    refreshUserRole,
     isAdmin: userRole === 'admin',
     isLeader: userRole === 'leader' || userRole === 'admin',
     isViewer: userRole === 'viewer'

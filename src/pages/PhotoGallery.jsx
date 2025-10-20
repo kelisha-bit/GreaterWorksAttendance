@@ -394,11 +394,13 @@ const PhotoGallery = () => {
           </p>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredPhotos.map(photo => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredPhotos.map((photo, index) => (
             <div
               key={photo.id}
-              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+              className={`bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer animate-grid-item ${
+                index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+              }`}
               onClick={() => viewPhoto(photo)}
             >
               <div className="aspect-square relative">
@@ -431,10 +433,12 @@ const PhotoGallery = () => {
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm divide-y">
-          {filteredPhotos.map(photo => (
+          {filteredPhotos.map((photo, index) => (
             <div
               key={photo.id}
-              className="p-4 hover:bg-gray-50 cursor-pointer flex items-center space-x-4"
+              className={`p-4 hover:bg-gray-50 cursor-pointer flex items-center space-x-4 animate-fade-in-up ${
+                index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+              }`}
               onClick={() => viewPhoto(photo)}
             >
               <img

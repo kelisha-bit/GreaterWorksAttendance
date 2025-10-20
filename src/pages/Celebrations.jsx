@@ -371,7 +371,12 @@ const Celebrations = () => {
               <h3 className="font-semibold text-pink-900 mb-2">🎉 Today's Celebrations!</h3>
               <div className="space-y-2">
                 {todayCelebrations.map((celeb, index) => (
-                  <div key={index} className="flex items-center space-x-2">
+                  <div 
+                    key={index} 
+                    className={`flex items-center space-x-2 animate-fade-in ${
+                      index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                    }`}
+                  >
                     <Cake className="w-4 h-4 text-pink-600" />
                     <span className="text-pink-800">{celeb.title}</span>
                   </div>
@@ -510,13 +515,15 @@ const Celebrations = () => {
                   const Icon = celeb.icon;
                   const celebDate = new Date(celeb.date);
                   const years = celeb.type === 'Birthday' || celeb.type === 'Anniversary' 
-                    ? calculateYears(celeb.date) 
+                    ? new Date().getFullYear() - celebDate.getFullYear()
                     : null;
 
                   return (
                     <div
-                      key={index}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      key={celeb.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-church-gold hover:bg-gray-50 transition-colors animate-fade-in-up ${
+                        index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                      }`}
                     >
                       <div className="flex items-center space-x-4">
                         <div className={`${celeb.color} p-3 rounded-lg`}>
@@ -576,13 +583,15 @@ const Celebrations = () => {
                 const celebDate = new Date(celeb.date);
                 const daysUntil = getDaysUntil(celeb.date);
                 const years = celeb.type === 'Birthday' || celeb.type === 'Anniversary' 
-                  ? calculateYears(celeb.date) 
+                  ? new Date().getFullYear() - celebDate.getFullYear()
                   : null;
 
                 return (
                   <div
-                    key={index}
-                    className={`flex items-center justify-between p-4 rounded-lg transition-colors ${
+                    key={celeb.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-church-gold hover:bg-gray-50 transition-colors animate-fade-in-up ${
+                      index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                    } ${
                       daysUntil === 0 
                         ? 'bg-gradient-to-r from-pink-100 to-purple-100 border-2 border-pink-300'
                         : 'bg-gray-50 hover:bg-gray-100'

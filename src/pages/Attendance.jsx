@@ -8,7 +8,8 @@ import {
   orderBy,
   doc,
   updateDoc,
-  getDoc
+  getDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,13 +23,15 @@ import {
   Search,
   Filter,
   Download,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { offlineSyncManager } from '../utils/offlineSync';
 
 const Attendance = () => {
   const { isLeader } = useAuth();
@@ -39,6 +42,8 @@ const Attendance = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMarkModal, setShowMarkModal] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
   const [loading, setLoading] = useState(true);
@@ -188,26 +193,46 @@ const Attendance = () => {
         return;
       }
 
-      // Add attendance record
-      await addDoc(collection(db, 'attendance_records'), {
-        sessionId: selectedSession.id,
-        memberId: memberId,
-        markedAt: new Date().toISOString()
-      });
+      // Get member data
+      const member = members.find(m => m.id === memberId);
+      if (!member) {
+        toast.error('Member not found');
+        return;
+      }
 
-      // Update session attendee count
-      const sessionRef = doc(db, 'attendance_sessions', selectedSession.id);
-      await updateDoc(sessionRef, {
-        attendeeCount: (selectedSession.attendeeCount || 0) + 1
-      });
+      // Use offline sync manager to save (handles online/offline automatically)
+      const result = await offlineSyncManager.saveAttendanceRecord(
+        selectedSession.id,
+        memberId,
+        member
+      );
 
-      toast.success('Attendance marked successfully');
-      fetchAttendanceRecords(selectedSession.id);
-      
-      // Update local session data
-      const updatedSession = { ...selectedSession, attendeeCount: (selectedSession.attendeeCount || 0) + 1 };
-      setSelectedSession(updatedSession);
-      setSessions(sessions.map(s => s.id === selectedSession.id ? updatedSession : s));
+      if (result.success) {
+        // Update local state optimistically
+        const newRecord = {
+          id: Date.now().toString(),
+          sessionId: selectedSession.id,
+          memberId: memberId,
+          markedAt: new Date().toISOString()
+        };
+        
+        setAttendanceRecords([...attendanceRecords, newRecord]);
+        
+        // Update local session data
+        const updatedSession = { 
+          ...selectedSession, 
+          attendeeCount: (selectedSession.attendeeCount || 0) + 1 
+        };
+        setSelectedSession(updatedSession);
+        setSessions(sessions.map(s => s.id === selectedSession.id ? updatedSession : s));
+
+        // If online, refresh from server to get accurate data
+        if (result.online) {
+          setTimeout(() => {
+            fetchAttendanceRecords(selectedSession.id);
+          }, 500);
+        }
+      }
     } catch (error) {
       console.error('Error marking attendance:', error);
       toast.error('Failed to mark attendance');
@@ -358,6 +383,51 @@ const Attendance = () => {
     toast.success('Attendance report exported successfully');
   };
 
+  const handleDeleteSession = async () => {
+    if (!sessionToDelete) return;
+
+    try {
+      // Delete all attendance records for this session
+      const recordsQuery = query(
+        collection(db, 'attendance_records'),
+        where('sessionId', '==', sessionToDelete.id)
+      );
+      const recordsSnapshot = await getDocs(recordsQuery);
+      
+      const deletePromises = recordsSnapshot.docs.map(doc => 
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+
+      // Delete the session itself
+      await deleteDoc(doc(db, 'attendance_sessions', sessionToDelete.id));
+
+      toast.success('Session and all associated records deleted successfully');
+      
+      // Update local state
+      setSessions(sessions.filter(s => s.id !== sessionToDelete.id));
+      
+      // Clear selected session if it was deleted
+      if (selectedSession?.id === sessionToDelete.id) {
+        setSelectedSession(null);
+        setShowMarkModal(false);
+      }
+      
+      // Close modals
+      setShowDeleteModal(false);
+      setSessionToDelete(null);
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      toast.error('Failed to delete session');
+    }
+  };
+
+  const confirmDeleteSession = (session, e) => {
+    e.stopPropagation(); // Prevent opening the mark modal
+    setSessionToDelete(session);
+    setShowDeleteModal(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -401,20 +471,31 @@ const Attendance = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sessions.map((session) => (
+            {sessions.map((session, index) => (
               <div
                 key={session.id}
                 onClick={() => {
                   setSelectedSession(session);
                   setShowMarkModal(true);
                 }}
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative animate-grid-item ${
+                  index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                } ${
                   selectedSession?.id === session.id
                     ? 'border-church-gold bg-church-lightGold'
                     : 'border-gray-200 hover:border-church-gold'
                 }`}
               >
-                <h3 className="font-semibold text-gray-900 mb-2">{session.name}</h3>
+                {isLeader && (
+                  <button
+                    onClick={(e) => confirmDeleteSession(session, e)}
+                    className="absolute top-2 right-2 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete session"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+                <h3 className="font-semibold text-gray-900 mb-2 pr-8">{session.name}</h3>
                 <div className="space-y-1 text-sm text-gray-600">
                   <p className="flex items-center">
                     <Calendar className="w-4 h-4 mr-2" />
@@ -599,19 +680,23 @@ const Attendance = () => {
 
               {/* Members List */}
               <div className="space-y-2">
-                {getFilteredMembers().map((member) => {
+                {getFilteredMembers().map((member, index) => {
                   const present = isPresent(member.id);
                   return (
                     <div
                       key={member.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border-2 ${
+                      className={`flex items-center justify-between p-3 rounded-lg border-2 animate-fade-in-up ${
+                        index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                      } ${
                         present
                           ? 'border-green-500 bg-green-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{member.fullName}</p>
+                        <p className="font-medium text-gray-900">
+                          {member.fullName} <span className="text-church-gold font-semibold">({member.memberId})</span>
+                        </p>
                         <p className="text-sm text-gray-600">
                           {member.department} • {member.membershipType}
                         </p>
@@ -634,6 +719,60 @@ const Attendance = () => {
                   );
                 })}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && sessionToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-bold text-gray-900">Delete Session</h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-gray-900 font-medium mb-2">
+                    Are you sure you want to delete this session and all associated records?
+                  </p>
+                  <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                    <p className="font-semibold text-gray-900">{sessionToDelete.name}</p>
+                    <p className="text-gray-600">
+                      {format(new Date(sessionToDelete.date), 'MMMM dd, yyyy')}
+                    </p>
+                    <p className="text-gray-600">
+                      {sessionToDelete.attendeeCount || 0} attendance record(s)
+                    </p>
+                  </div>
+                  <p className="text-sm text-red-600 mt-3">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSessionToDelete(null);
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSession}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>

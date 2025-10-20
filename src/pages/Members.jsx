@@ -13,10 +13,14 @@ import {
   Upload,
   User,
   QrCode,
-  Eye
+  Eye,
+  CreditCard,
+  Printer
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
+import IDCardPrintModal from '../components/IDCardPrintModal';
+import BulkIDCardPrint from '../components/BulkIDCardPrint';
 
 const Members = () => {
   const navigate = useNavigate();
@@ -27,6 +31,8 @@ const Members = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showIDCardModal, setShowIDCardModal] = useState(false);
+  const [showBulkPrintModal, setShowBulkPrintModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({
@@ -251,6 +257,19 @@ const Members = () => {
     setShowQRModal(true);
   };
 
+  const showIDCard = (member) => {
+    setSelectedMember(member);
+    setShowIDCardModal(true);
+  };
+
+  const handleBulkPrint = () => {
+    if (filteredMembers.length === 0) {
+      toast.error('No members to print');
+      return;
+    }
+    setShowBulkPrintModal(true);
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setEditMode(false);
@@ -320,13 +339,21 @@ const Members = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Member Management</h1>
         {isLeader && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleBulkPrint}
+              className="btn-secondary flex items-center justify-center space-x-2"
+              title="Print ID Cards"
+            >
+              <Printer className="w-5 h-5" />
+              <span className="hidden sm:inline">Print ID Cards</span>
+            </button>
             <button
               onClick={() => navigate('/members/import')}
               className="btn-secondary flex items-center justify-center space-x-2"
             >
               <Upload className="w-5 h-5" />
-              <span>Import Members</span>
+              <span className="hidden sm:inline">Import</span>
             </button>
             <button
               onClick={() => setShowModal(true)}
@@ -390,8 +417,13 @@ const Members = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredMembers.map((member) => (
-                  <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50">
+                {filteredMembers.map((member, index) => (
+                  <tr 
+                    key={member.id} 
+                    className={`border-b border-gray-100 hover:bg-gray-50 animate-fade-in-up ${
+                      index < 20 ? `stagger-${index + 1}` : 'stagger-max'
+                    }`}
+                  >
                     <td className="py-3 px-4 text-sm font-mono text-gray-600">{member.memberId}</td>
                     <td className="py-3 px-4 text-sm font-medium text-gray-900">{member.fullName}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.gender}</td>
@@ -417,6 +449,13 @@ const Members = () => {
                           title="View Profile"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => showIDCard(member)}
+                          className="p-1 text-orange-600 hover:bg-orange-50 rounded"
+                          title="Print ID Card"
+                        >
+                          <CreditCard className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => showQRCode(member)}
@@ -807,6 +846,25 @@ const Members = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ID Card Print Modal */}
+      {showIDCardModal && selectedMember && (
+        <IDCardPrintModal
+          member={selectedMember}
+          onClose={() => {
+            setShowIDCardModal(false);
+            setSelectedMember(null);
+          }}
+        />
+      )}
+
+      {/* Bulk ID Card Print Modal */}
+      {showBulkPrintModal && (
+        <BulkIDCardPrint
+          members={filteredMembers}
+          onClose={() => setShowBulkPrintModal(false)}
+        />
       )}
     </div>
   );

@@ -1,0 +1,455 @@
+/* Member ID Card Styles */
+
+.id-card-container {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.id-card {
+  width: 3.375in !important; /* Standard CR80 card width */
+  height: 2.125in !important; /* Standard CR80 card height */
+  min-width: 3.375in;
+  min-height: 2.125in;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  position: relative;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Front Card Styles */
+.id-card-front {
+  display: flex;
+  flex-direction: column;
+  padding: 0.12in;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  color: white;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.id-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.06in;
+  margin-bottom: 0.03in;
+  padding-bottom: 0.025in;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.church-logo {
+  flex-shrink: 0;
+}
+
+.logo-circle {
+  width: 0.35in;
+  height: 0.35in;
+  background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+}
+
+.logo-text {
+  font-size: 14pt;
+  font-weight: 800;
+  color: #1e3a8a;
+  letter-spacing: -1px;
+}
+
+.church-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.church-name {
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.church-subtitle {
+  font-size: 6.5pt;
+  margin: 0;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+/* QR Code in Header */
+.qr-code-header {
+  flex-shrink: 0;
+  background: white;
+  padding: 0.025in;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.qr-code-header svg {
+  display: block;
+}
+
+/* Member Profile - Horizontal Layout */
+.member-profile-horizontal {
+  display: flex;
+  align-items: center;
+  gap: 0.08in;
+  margin-bottom: 0.03in;
+  padding: 0 0.05in;
+}
+
+.member-photo-section {
+  flex-shrink: 0;
+}
+
+.member-photo {
+  width: 0.5in;
+  height: 0.5in;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.member-photo-placeholder {
+  width: 0.5in;
+  height: 0.5in;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.placeholder-initials {
+  font-size: 16pt;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+/* Member Info Text - Name and ID */
+.member-info-text {
+  flex: 1;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.02in;
+  min-width: 0; /* allow flex child text to shrink for ellipsis */
+}
+
+.member-details {
+  margin-bottom: 0.02in;
+}
+
+.member-name {
+  font-size: 12pt;
+  font-weight: 800;
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-id {
+  font-size: 7.5pt;
+  margin: 0;
+  opacity: 0.85;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.02in 0.04in;
+  font-size: 6.5pt;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.04in 0.06in;
+  border-radius: 5px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5px;
+}
+
+.info-label {
+  opacity: 0.75;
+  font-weight: 600;
+  font-size: 6pt;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.info-value {
+  font-weight: 700;
+  font-size: 8pt;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qr-code-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.015in;
+  margin-top: auto;
+  padding: 0.03in;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-section svg {
+  display: block;
+}
+
+.qr-label {
+  font-size: 4.5pt;
+  color: #1e3a8a;
+  margin: 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1px;
+}
+
+.id-card-footer {
+  text-align: center;
+  margin-top: auto;
+  padding-top: 0.025in;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.validity-text {
+  font-size: 5.5pt;
+  margin: 0;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+/* Back Card Styles */
+.id-card-back {
+  display: flex;
+  flex-direction: column;
+  padding: 0.3in;
+  background: white;
+  color: #1e3a8a;
+  gap: 0.12in;
+}
+
+.back-section {
+  flex: 1;
+}
+
+.back-section-title {
+  font-size: 8pt;
+  font-weight: 700;
+  margin: 0 0 0.06in 0;
+  color: #1e3a8a;
+  border-bottom: 1px solid #d4af37;
+  padding-bottom: 0.04in;
+}
+
+.back-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.03in;
+}
+
+.back-text {
+  font-size: 6.5pt;
+  margin: 0;
+  line-height: 1.3;
+  color: #374151;
+}
+
+.back-list {
+  margin: 0;
+  padding-left: 0.15in;
+  font-size: 5.5pt;
+  line-height: 1.4;
+  color: #374151;
+}
+
+.back-list li {
+  margin-bottom: 0.03in;
+}
+
+.signature-section {
+  margin-top: auto;
+}
+
+.signature-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.04in;
+}
+
+.signature-box {
+  width: 1.5in;
+  height: 0.3in;
+  border-bottom: 1px solid #1e3a8a;
+}
+
+.signature-label {
+  font-size: 5.5pt;
+  color: #6b7280;
+  margin: 0;
+  font-style: italic;
+}
+
+.barcode-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.04in;
+  padding: 0.08in;
+  background: #f3f4f6;
+  border-radius: 6px;
+}
+
+.barcode-placeholder {
+  width: 100%;
+  height: 0.25in;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
+.barcode-lines {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 100%;
+}
+
+.barcode-line {
+  width: 2px;
+  background: #1e3a8a;
+}
+
+.barcode-text {
+  font-size: 6pt;
+  font-family: 'Courier New', monospace;
+  color: #1e3a8a;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    size: 3.375in 2.125in;
+    margin: 0;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .id-card {
+    box-shadow: none;
+    page-break-after: always;
+    break-after: page;
+    margin: 0;
+  }
+
+  .id-card-container {
+    display: block;
+  }
+
+  /* Hide non-printable elements */
+  .no-print,
+  button,
+  nav,
+  header,
+  footer,
+  .offline-indicator {
+    display: none !important;
+  }
+
+  /* Ensure colors print */
+  .id-card-front {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .logo-circle,
+  .qr-code-section,
+  .member-photo-placeholder {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Bulk Print Layout */
+.id-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 3.375in);
+  gap: 0.25in;
+  padding: 0.25in;
+  justify-content: center;
+}
+
+@media print {
+  .id-cards-grid {
+    display: block;
+  }
+
+  .id-cards-grid .id-card-container {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .id-cards-grid .id-card-container:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}
+
+/* Screen Preview Styles */
+@media screen {
+  .id-card {
+    transform: scale(2.5);
+    transform-origin: center;
+    margin: 1.5in;
+  }
+
+  .id-cards-grid .id-card {
+    transform: scale(1.2);
+    margin: 0.25in;
+  }
+}
