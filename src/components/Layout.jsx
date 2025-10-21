@@ -44,7 +44,7 @@ const Layout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'My Portal', href: '/my-portal', icon: UserCircle },
-    { name: 'My Department', href: '/department-dashboard', icon: Briefcase, leaderOnly: true },
+    { name: 'My Department', href: '/department-dashboard', icon: Briefcase },
     { name: 'Members', href: '/members', icon: Users },
     { name: 'Visitors', href: '/visitors', icon: UserPlus, leaderOnly: true },
     { name: 'Events Calendar', href: '/events', icon: Calendar },

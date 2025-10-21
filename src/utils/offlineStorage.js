@@ -190,11 +190,19 @@ class OfflineStorage {
       const transaction = db.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('synced');
-      // Use IDBKeyRange to query for false values
-      const request = index.count(IDBKeyRange.only(false));
       
-      request.onsuccess = () => {
-        resolve(request.result);
+      // Use a cursor to count records where synced is false
+      const request = index.openCursor(IDBKeyRange.only(false));
+      let count = 0;
+      
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          count++;
+          cursor.continue();
+        } else {
+          resolve(count);
+        }
       };
       
       request.onerror = () => {

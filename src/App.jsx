@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -26,10 +26,50 @@ import BackupManager from './pages/BackupManager';
 import PhotoGallery from './pages/PhotoGallery';
 import Settings from './pages/Settings';
 import UserRoles from './pages/UserRoles';
+import Unauthorized from './pages/Unauthorized';
 
-const PrivateRoute = ({ children }) => {
-  const { currentUser } = useAuth();
-  return currentUser ? children : <Navigate to="/login" />;
+// Routes accessible by viewers
+const viewerAllowedRoutes = [
+  '/',
+  '/my-portal',
+  '/events',
+  '/gallery',
+  '/members',
+  '/department-dashboard'
+];
+
+const PrivateRoute = ({ children, requiredRole = null }) => {
+  const { currentUser, isViewer, isAdmin } = useAuth();
+  const location = useLocation();
+  const isViewerRoute = viewerAllowedRoutes.some(route => 
+    location.pathname.startsWith(route)
+  );
+
+  if (!currentUser) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Admins have full access to everything
+  if (isAdmin) {
+    return children;
+  }
+
+  // Block viewers from accessing restricted routes
+  if (isViewer && !isViewerRoute) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Additional role-based access control if needed
+  if (requiredRole) {
+    const hasRequiredRole = requiredRole === 'admin' ? isAdmin : 
+                         requiredRole === 'leader' ? currentUser.isLeader : true;
+    
+    if (!hasRequiredRole) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+  }
+
+  return children;
 };
 
 function AppRoutes() {
@@ -37,6 +77,7 @@ function AppRoutes() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
         <Route
           path="/"
           element={
@@ -45,26 +86,88 @@ function AppRoutes() {
             </PrivateRoute>
           }
         >
+          {/* Routes accessible by all authenticated users */}
           <Route index element={<EnhancedDashboard />} />
-          <Route path="department-dashboard" element={<DepartmentDashboard />} />
           <Route path="my-portal" element={<MyPortal />} />
-          <Route path="members" element={<Members />} />
-          <Route path="members/import" element={<MemberImport />} />
-          <Route path="members/:memberId" element={<EnhancedMemberProfile />} />
-          <Route path="visitors" element={<Visitors />} />
-          <Route path="visitors/:visitorId" element={<VisitorProfile />} />
           <Route path="events" element={<EventCalendar />} />
-          <Route path="celebrations" element={<Celebrations />} />
-          <Route path="achievements" element={<Achievements />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="analytics" element={<AdvancedAnalytics />} />
-          <Route path="contributions" element={<Contributions />} />
-          <Route path="financial-reports" element={<FinancialReports />} />
-          <Route path="backup" element={<BackupManager />} />
           <Route path="gallery" element={<PhotoGallery />} />
-          <Route path="user-roles" element={<UserRoles />} />
-          <Route path="settings" element={<Settings />} />
+          
+          {/* Members list - viewable by all authenticated users */}
+          <Route path="members" element={<Members />} />
+          {/* Member profile and import - restricted */}
+          <Route path="members/import" element={
+            <PrivateRoute requiredRole="leader">
+              <MemberImport />
+            </PrivateRoute>
+          } />
+          <Route path="members/:memberId" element={
+            <PrivateRoute requiredRole="leader">
+              <EnhancedMemberProfile />
+            </PrivateRoute>
+          } />
+          
+          {/* Department Dashboard - Accessible to all authenticated users */}
+          <Route path="department-dashboard" element={<DepartmentDashboard />} />
+          <Route path="visitors" element={
+            <PrivateRoute requiredRole="leader">
+              <Visitors />
+            </PrivateRoute>
+          } />
+          <Route path="visitors/:visitorId" element={
+            <PrivateRoute requiredRole="leader">
+              <VisitorProfile />
+            </PrivateRoute>
+          } />
+          <Route path="celebrations" element={
+            <PrivateRoute requiredRole="leader">
+              <Celebrations />
+            </PrivateRoute>
+          } />
+          <Route path="achievements" element={
+            <PrivateRoute requiredRole="leader">
+              <Achievements />
+            </PrivateRoute>
+          } />
+          <Route path="attendance" element={
+            <PrivateRoute requiredRole="leader">
+              <Attendance />
+            </PrivateRoute>
+          } />
+          <Route path="reports" element={
+            <PrivateRoute requiredRole="leader">
+              <Reports />
+            </PrivateRoute>
+          } />
+          <Route path="analytics" element={
+            <PrivateRoute requiredRole="leader">
+              <AdvancedAnalytics />
+            </PrivateRoute>
+          } />
+          <Route path="contributions" element={
+            <PrivateRoute requiredRole="leader">
+              <Contributions />
+            </PrivateRoute>
+          } />
+          <Route path="financial-reports" element={
+            <PrivateRoute requiredRole="leader">
+              <FinancialReports />
+            </PrivateRoute>
+          } />
+          <Route path="backup" element={
+            <PrivateRoute requiredRole="admin">
+              <BackupManager />
+            </PrivateRoute>
+          } />
+          <Route path="user-roles" element={
+            <PrivateRoute requiredRole="admin">
+              <UserRoles />
+            </PrivateRoute>
+          } />
+          <Route path="settings" element={
+            <PrivateRoute requiredRole="admin">
+              <Settings />
+            </PrivateRoute>
+          } />
         </Route>
       </Routes>
     </Router>

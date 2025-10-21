@@ -116,7 +116,7 @@ The Greater Works Attendance application now features intelligent role-based das
 ---
 
 ### 4. **Department Dashboard**
-**Access:** Leaders with assigned departments
+**Access:** Leaders and Viewers with assigned departments
 
 #### Features:
 - ✅ **Department-Specific Stats** - Focused metrics
@@ -255,7 +255,7 @@ Quick action cards automatically show/hide based on permissions:
 - Dynamic content loading
 
 ### Department Dashboard (`/department-dashboard`)
-- Leaders only
+- Leaders and Viewers with assigned departments
 - Requires department assignment
 - Department-specific data
 
@@ -299,8 +299,8 @@ Quick action cards automatically show/hide based on permissions:
 2. View leader-specific dashboard
 3. Access department dashboard via sidebar
 
-#### Managing Your Department:
-1. Click **My Department** in sidebar
+#### Accessing Department Dashboard (Leaders and Viewers):
+1. Click **My Department** in sidebar (if assigned to a department)
 2. View department statistics
 3. Monitor member activity
 4. Track department performance
@@ -313,19 +313,19 @@ Quick action cards automatically show/hide based on permissions:
 
 ---
 
-### For Members:
+### For Viewers:
 
-#### Accessing Member Dashboard:
-1. Log in with member credentials
-2. View simplified dashboard
-3. See church-wide statistics
-4. Access My Portal for personal data
+#### Accessing Department Dashboard:
+1. Log in with viewer credentials
+2. Click **My Department** in sidebar (if assigned to a department)
+3. View department overview and member list
+4. See department statistics (read-only)
 
 #### Available Actions:
-- View attendance sessions
-- Check reports
-- Access personal portal
-- View church statistics
+- View department statistics
+- View department member list
+- Access My Portal for personal data
+- View church-wide reports
 
 ---
 

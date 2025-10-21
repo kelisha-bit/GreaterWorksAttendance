@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 const DepartmentDashboard = () => {
-  const { currentUser, userRole } = useAuth();
+  const { currentUser, userRole, isViewer } = useAuth();
   const [userMember, setUserMember] = useState(null);
   const [departmentMembers, setDepartmentMembers] = useState([]);
   const [departmentStats, setDepartmentStats] = useState({
@@ -194,7 +194,9 @@ const DepartmentDashboard = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">{userMember.department} Department</h1>
-            <p className="opacity-90">Department Leader Dashboard</p>
+            <p className="opacity-90">
+              {isViewer ? 'Department Overview' : 'Department Leader Dashboard'}
+            </p>
           </div>
           <div className="hidden md:block">
             <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -271,56 +273,58 @@ const DepartmentDashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Department Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link
-            to="/members"
-            className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
-          >
-            <div className="flex items-start space-x-4">
-              <div className="bg-blue-500 p-3 rounded-lg group-hover:scale-110 transition-transform">
-                <Users className="w-6 h-6 text-white" />
+      {/* Quick Actions - Only show for non-viewers */}
+      {!isViewer && (
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Department Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Link
+              to="/members"
+              className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-start space-x-4">
+                <div className="bg-blue-500 p-3 rounded-lg group-hover:scale-110 transition-transform">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">View All Members</h3>
+                  <p className="text-sm text-gray-600">Manage department members</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">View All Members</h3>
-                <p className="text-sm text-gray-600">Manage department members</p>
-              </div>
-            </div>
-          </Link>
+            </Link>
 
-          <Link
-            to="/reports"
-            className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
-          >
-            <div className="flex items-start space-x-4">
-              <div className="bg-purple-500 p-3 rounded-lg group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-6 h-6 text-white" />
+            <Link
+              to="/reports"
+              className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-start space-x-4">
+                <div className="bg-purple-500 p-3 rounded-lg group-hover:scale-110 transition-transform">
+                  <BarChart3 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Department Reports</h3>
+                  <p className="text-sm text-gray-600">View attendance analytics</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Department Reports</h3>
-                <p className="text-sm text-gray-600">View attendance analytics</p>
-              </div>
-            </div>
-          </Link>
+            </Link>
 
-          <Link
-            to="/attendance"
-            className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
-          >
-            <div className="flex items-start space-x-4">
-              <div className="bg-green-500 p-3 rounded-lg group-hover:scale-110 transition-transform">
-                <Calendar className="w-6 h-6 text-white" />
+            <Link
+              to="/attendance"
+              className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-start space-x-4">
+                <div className="bg-green-500 p-3 rounded-lg group-hover:scale-110 transition-transform">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Attendance</h3>
+                  <p className="text-sm text-gray-600">Track department attendance</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Attendance</h3>
-                <p className="text-sm text-gray-600">Track department attendance</p>
-              </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
