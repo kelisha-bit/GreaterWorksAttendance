@@ -199,24 +199,24 @@ const Attendance = () => {
     }
 
     try {
-      // Check if already marked
-      const existing = attendanceRecords.find(r => r.memberId === memberId);
-      if (existing) {
-        toast.error('Member already marked present');
-        return;
-      }
-
-      // Get member data
+      // Get member data first
       const member = members.find(m => m.id === memberId);
       if (!member) {
         toast.error('Member not found');
         return;
       }
 
+      // Check if already marked
+      const existing = attendanceRecords.find(r => r.memberId === member.memberId);
+      if (existing) {
+        toast.error('Member already marked present');
+        return;
+      }
+
       // Use offline sync manager to save (handles online/offline automatically)
       const result = await offlineSyncManager.saveAttendanceRecord(
         selectedSession.id,
-        memberId,
+        member.memberId, // Use the member's memberId field, not document ID
         member
       );
 
@@ -225,7 +225,7 @@ const Attendance = () => {
         const newRecord = {
           id: Date.now().toString(),
           sessionId: selectedSession.id,
-          memberId: memberId,
+          memberId: member.memberId, // Use the member's memberId field, not document ID
           markedAt: new Date().toISOString()
         };
         
@@ -310,8 +310,8 @@ const Attendance = () => {
     return filtered;
   };
 
-  const isPresent = (memberId) => {
-    return attendanceRecords.some(r => r.memberId === memberId);
+  const isPresent = (member) => {
+    return attendanceRecords.some(r => r.memberId === member.memberId);
   };
 
   const exportSessionToPDF = () => {
@@ -336,7 +336,7 @@ const Attendance = () => {
     doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 14, 65);
     
     // Get present members
-    const presentMembers = members.filter(m => isPresent(m.id));
+    const presentMembers = members.filter(m => isPresent(m));
     
     // Attendance table
     const tableData = presentMembers.map((member, index) => [
@@ -367,7 +367,7 @@ const Attendance = () => {
       return;
     }
 
-    const presentMembers = members.filter(m => isPresent(m.id));
+    const presentMembers = members.filter(m => isPresent(m));
     
     const headers = ['Member ID', 'Full Name', 'Department', 'Phone Number', 'Email', 'Membership Type', 'Status'];
     const rows = presentMembers.map(member => [
@@ -707,7 +707,7 @@ const Attendance = () => {
               {/* Members List */}
               <div className="space-y-2">
                 {getFilteredMembers().map((member, index) => {
-                  const present = isPresent(member.id);
+                  const present = isPresent(member);
                   return (
                     <div
                       key={member.id}
