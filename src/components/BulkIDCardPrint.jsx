@@ -14,7 +14,10 @@ const BulkIDCardPrint = ({ members, onClose }) => {
   const membershipTypes = [...new Set(members.map(m => m.membershipType))].sort();
 
   const filteredMembers = members.filter(member => {
-    if (filterDepartment !== 'all' && member.department !== filterDepartment) {
+    if (filterDepartment !== 'all' && 
+        (Array.isArray(member.department) 
+          ? !member.department.includes(filterDepartment) 
+          : member.department !== filterDepartment)) {
       return false;
     }
     if (filterType !== 'all' && member.membershipType !== filterType) {
@@ -33,7 +36,10 @@ const BulkIDCardPrint = ({ members, onClose }) => {
 
   const toggleAll = () => {
     const currentFiltered = members.filter(member => {
-      if (filterDepartment !== 'all' && member.department !== filterDepartment) {
+      if (filterDepartment !== 'all' && 
+          (Array.isArray(member.department) 
+            ? !member.department.includes(filterDepartment) 
+            : member.department !== filterDepartment)) {
         return false;
       }
       if (filterType !== 'all' && member.membershipType !== filterType) {
@@ -246,7 +252,7 @@ const BulkIDCardPrint = ({ members, onClose }) => {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">{member.fullName}</p>
                       <p className="text-sm text-gray-600 truncate">
-                        {member.memberId} • {member.department}
+                        {member.memberId} • {Array.isArray(member.department) ? member.department.join(', ') : member.department}
                       </p>
                     </div>
                   </div>
@@ -255,7 +261,10 @@ const BulkIDCardPrint = ({ members, onClose }) => {
           </div>
 
           {members.filter(member => {
-            if (filterDepartment !== 'all' && member.department !== filterDepartment) return false;
+            if (filterDepartment !== 'all' && 
+                (Array.isArray(member.department) 
+                  ? !member.department.includes(filterDepartment) 
+                  : member.department !== filterDepartment)) return false;
             if (filterType !== 'all' && member.membershipType !== filterType) return false;
             return true;
           }).length === 0 && (
@@ -328,7 +337,7 @@ function generateCardHTML(member, showBack) {
           <div class="member-info-grid">
             <div class="info-item">
               <span class="info-label">Department:</span>
-              <span class="info-value">${member.department}</span>
+              <span class="info-value">${Array.isArray(member.department) ? member.department.join(', ') : member.department}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Type:</span>

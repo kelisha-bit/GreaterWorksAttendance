@@ -1,36 +1,35 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import OfflineIndicator from './components/OfflineIndicator';
 import { offlineStorage } from './utils/offlineStorage';
-import Login from './pages/Login';
-import EnhancedDashboard from './pages/EnhancedDashboard';
-import DepartmentDashboard from './pages/DepartmentDashboard';
-import MyPortal from './pages/MyPortal';
-import Members from './pages/Members';
-import EnhancedMemberProfile from './pages/EnhancedMemberProfile';
-import MemberImport from './pages/MemberImport';
-import Visitors from './pages/Visitors';
-import VisitorProfile from './pages/VisitorProfile';
-import EventCalendar from './pages/EventCalendar';
-import Celebrations from './pages/Celebrations';
-import Achievements from './pages/Achievements';
-import Attendance from './pages/Attendance';
-import Reports from './pages/Reports';
-import AdvancedAnalytics from './pages/AdvancedAnalytics';
-import Contributions from './pages/Contributions';
-import FinancialReports from './pages/FinancialReports';
-import BackupManager from './pages/BackupManager';
-import PhotoGallery from './pages/PhotoGallery';
-import Settings from './pages/Settings';
-import UserRoles from './pages/UserRoles';
-import Unauthorized from './pages/Unauthorized';
+const Login = lazy(() => import('./pages/Login'));
+const EnhancedDashboard = lazy(() => import('./pages/EnhancedDashboard'));
+const DepartmentDashboard = lazy(() => import('./pages/DepartmentDashboard'));
+const MyPortal = lazy(() => import('./pages/MyPortal'));
+const Members = lazy(() => import('./pages/Members'));
+const EnhancedMemberProfile = lazy(() => import('./pages/EnhancedMemberProfile'));
+const MemberImport = lazy(() => import('./pages/MemberImport'));
+const Visitors = lazy(() => import('./pages/Visitors'));
+const VisitorProfile = lazy(() => import('./pages/VisitorProfile'));
+const EventCalendar = lazy(() => import('./pages/EventCalendar'));
+const Celebrations = lazy(() => import('./pages/Celebrations'));
+const Achievements = lazy(() => import('./pages/Achievements'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Reports = lazy(() => import('./pages/Reports'));
+const AdvancedAnalytics = lazy(() => import('./pages/AdvancedAnalytics'));
+const Contributions = lazy(() => import('./pages/Contributions'));
+const FinancialReports = lazy(() => import('./pages/FinancialReports'));
+const BackupManager = lazy(() => import('./pages/BackupManager'));
+const PhotoGallery = lazy(() => import('./pages/PhotoGallery'));
+const Settings = lazy(() => import('./pages/Settings'));
+const UserRoles = lazy(() => import('./pages/UserRoles'));
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 
 // Routes accessible by viewers
 const viewerAllowedRoutes = [
-  '/',
   '/my-portal',
   '/events',
   '/gallery',
@@ -39,11 +38,13 @@ const viewerAllowedRoutes = [
 ];
 
 const PrivateRoute = ({ children, requiredRole = null }) => {
-  const { currentUser, isViewer, isAdmin } = useAuth();
+  const { currentUser, isViewer, isAdmin, isLeader } = useAuth();
   const location = useLocation();
-  const isViewerRoute = viewerAllowedRoutes.some(route => 
-    location.pathname.startsWith(route)
-  );
+  const isViewerRoute = viewerAllowedRoutes.some(route => {
+    if (location.pathname === route) return true;
+    // allow nested paths only when they match a full segment boundary
+    return location.pathname.startsWith(route + '/');
+  });
 
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -62,8 +63,7 @@ const PrivateRoute = ({ children, requiredRole = null }) => {
   // Additional role-based access control if needed
   if (requiredRole) {
     const hasRequiredRole = requiredRole === 'admin' ? isAdmin : 
-                         requiredRole === 'leader' ? currentUser.isLeader : true;
-    
+                         requiredRole === 'leader' ? isLeader : true;
     if (!hasRequiredRole) {
       return <Navigate to="/unauthorized" replace />;
     }
@@ -76,8 +76,8 @@ function AppRoutes() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/login" element={<Suspense fallback={<div />}> <Login /> </Suspense>} />
+        <Route path="/unauthorized" element={<Suspense fallback={<div />}> <Unauthorized /> </Suspense>} />
         <Route
           path="/"
           element={
@@ -87,85 +87,85 @@ function AppRoutes() {
           }
         >
           {/* Routes accessible by all authenticated users */}
-          <Route index element={<EnhancedDashboard />} />
-          <Route path="my-portal" element={<MyPortal />} />
-          <Route path="events" element={<EventCalendar />} />
-          <Route path="gallery" element={<PhotoGallery />} />
+          <Route index element={<Suspense fallback={<div />}> <EnhancedDashboard /> </Suspense>} />
+          <Route path="my-portal" element={<Suspense fallback={<div />}> <MyPortal /> </Suspense>} />
+          <Route path="events" element={<Suspense fallback={<div />}> <EventCalendar /> </Suspense>} />
+          <Route path="gallery" element={<Suspense fallback={<div />}> <PhotoGallery /> </Suspense>} />
           
           {/* Members list - viewable by all authenticated users */}
-          <Route path="members" element={<Members />} />
+          <Route path="members" element={<Suspense fallback={<div />}> <Members /> </Suspense>} />
           {/* Member profile and import - restricted */}
           <Route path="members/import" element={
             <PrivateRoute requiredRole="leader">
-              <MemberImport />
+              <Suspense fallback={<div />}> <MemberImport /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="members/:memberId" element={
             <PrivateRoute requiredRole="leader">
-              <EnhancedMemberProfile />
+              <Suspense fallback={<div />}> <EnhancedMemberProfile /> </Suspense>
             </PrivateRoute>
           } />
           
           {/* Department Dashboard - Accessible to all authenticated users */}
-          <Route path="department-dashboard" element={<DepartmentDashboard />} />
+          <Route path="department-dashboard" element={<Suspense fallback={<div />}> <DepartmentDashboard /> </Suspense>} />
           <Route path="visitors" element={
             <PrivateRoute requiredRole="leader">
-              <Visitors />
+              <Suspense fallback={<div />}> <Visitors /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="visitors/:visitorId" element={
             <PrivateRoute requiredRole="leader">
-              <VisitorProfile />
+              <Suspense fallback={<div />}> <VisitorProfile /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="celebrations" element={
             <PrivateRoute requiredRole="leader">
-              <Celebrations />
+              <Suspense fallback={<div />}> <Celebrations /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="achievements" element={
             <PrivateRoute requiredRole="leader">
-              <Achievements />
+              <Suspense fallback={<div />}> <Achievements /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="attendance" element={
             <PrivateRoute requiredRole="leader">
-              <Attendance />
+              <Suspense fallback={<div />}> <Attendance /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="reports" element={
             <PrivateRoute requiredRole="leader">
-              <Reports />
+              <Suspense fallback={<div />}> <Reports /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="analytics" element={
             <PrivateRoute requiredRole="leader">
-              <AdvancedAnalytics />
+              <Suspense fallback={<div />}> <AdvancedAnalytics /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="contributions" element={
             <PrivateRoute requiredRole="leader">
-              <Contributions />
+              <Suspense fallback={<div />}> <Contributions /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="financial-reports" element={
             <PrivateRoute requiredRole="leader">
-              <FinancialReports />
+              <Suspense fallback={<div />}> <FinancialReports /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="backup" element={
             <PrivateRoute requiredRole="admin">
-              <BackupManager />
+              <Suspense fallback={<div />}> <BackupManager /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="user-roles" element={
             <PrivateRoute requiredRole="admin">
-              <UserRoles />
+              <Suspense fallback={<div />}> <UserRoles /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="settings" element={
             <PrivateRoute requiredRole="admin">
-              <Settings />
+              <Suspense fallback={<div />}> <Settings /> </Suspense>
             </PrivateRoute>
           } />
         </Route>
@@ -176,18 +176,6 @@ function AppRoutes() {
 
 function App() {
   useEffect(() => {
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/service-worker.js')
-        .then((registration) => {
-          console.log('Service Worker registered:', registration);
-        })
-        .catch((error) => {
-          console.error('Service Worker registration failed:', error);
-        });
-    }
-
     // Initialize offline storage
     offlineStorage.init().catch((error) => {
       console.error('Failed to initialize offline storage:', error);

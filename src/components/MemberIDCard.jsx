@@ -72,7 +72,7 @@ const MemberIDCard = ({ member, showBack = false }) => {
           <div className="member-info-grid">
             <div className="info-item">
               <span className="info-label">Department:</span>
-              <span className="info-value">{member.department}</span>
+              <span className="info-value">{Array.isArray(member.department) ? member.department.join(', ') : member.department}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Type:</span>

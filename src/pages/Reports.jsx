@@ -16,7 +16,8 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { Download, Calendar, TrendingUp, Users, Filter } from 'lucide-react';
+import { Download, Calendar, TrendingUp, Users, Filter, RefreshCw } from 'lucide-react';
+import { offlineSyncManager } from '../utils/offlineSync';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -36,7 +37,7 @@ const Reports = () => {
     attendanceRate: 0
   });
 
-  const departments = ['All', 'Choir', 'Ushering', 'Media', 'Children Ministry', 'Youth Ministry', 'Prayer Team', 'Welfare', 'Protocol', 'Other'];
+  const departments = ['All', 'Choir', 'Music Team', 'Ushering and Welcome Team', 'Financial team', 'Media', 'Children Ministry', 'Youth Ministry', 'Women Ministry', 'Men Ministry', 'Evangelism Team', 'Follow Up Team', 'Prayer Team', 'Welfare', 'Protocol', 'Other'];
 
   const COLORS = ['#D4AF37', '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
 
@@ -104,7 +105,11 @@ const Reports = () => {
     if (selectedDepartment === 'All') {
       return members;
     }
-    return members.filter(m => m.department === selectedDepartment);
+    return members.filter(m =>
+      Array.isArray(m.department)
+        ? m.department.includes(selectedDepartment)
+        : m.department === selectedDepartment
+    );
   };
 
   const calculateStats = () => {
@@ -138,7 +143,10 @@ const Reports = () => {
   const getDepartmentData = () => {
     const deptCounts = {};
     members.forEach(member => {
-      deptCounts[member.department] = (deptCounts[member.department] || 0) + 1;
+      const memberDepts = Array.isArray(member.department) ? member.department : [member.department];
+      memberDepts.forEach(dept => {
+        deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+      });
     });
 
     return Object.entries(deptCounts).map(([name, value]) => ({
@@ -292,6 +300,10 @@ const Reports = () => {
           <button onClick={exportToPDF} className="btn-primary flex items-center space-x-2">
             <Download className="w-4 h-4" />
             <span>Export PDF</span>
+          </button>
+          <button onClick={() => offlineSyncManager.manualSync()} className="btn-secondary flex items-center space-x-2">
+            <RefreshCw className="w-4 h-4" />
+            <span>Sync now</span>
           </button>
         </div>
       </div>

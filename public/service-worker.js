@@ -7,8 +7,7 @@ const RUNTIME_CACHE = 'runtime-cache-v1';
 // Assets to cache on install
 const PRECACHE_ASSETS = [
   '/',
-  '/index.html',
-  '/manifest.json'
+  '/index.html'
 ];
 
 // Install event - cache essential assets

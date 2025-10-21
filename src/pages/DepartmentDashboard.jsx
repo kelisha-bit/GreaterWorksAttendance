@@ -16,6 +16,7 @@ import {
 
 const DepartmentDashboard = () => {
   const { currentUser, userRole, isViewer } = useAuth();
+  const [primaryDepartment, setPrimaryDepartment] = useState('');
   const [userMember, setUserMember] = useState(null);
   const [departmentMembers, setDepartmentMembers] = useState([]);
   const [departmentStats, setDepartmentStats] = useState({
@@ -47,10 +48,21 @@ const DepartmentDashboard = () => {
       const memberData = { id: memberSnapshot.docs[0].id, ...memberSnapshot.docs[0].data() };
       setUserMember(memberData);
 
-      // Fetch all members in the same department
+      // Handle multiple departments - use the first department for now
+      const userDepartments = Array.isArray(memberData.department) ? memberData.department : [memberData.department];
+      const primaryDepartment = userDepartments[0];
+
+      if (!primaryDepartment) {
+        setLoading(false);
+        return;
+      }
+
+      setPrimaryDepartment(primaryDepartment);
+
+      // Fetch all members in the user's departments
       const deptQuery = query(
         collection(db, 'members'),
-        where('department', '==', memberData.department)
+        where('department', 'array-contains', primaryDepartment)
       );
       const deptSnapshot = await getDocs(deptQuery);
       const deptMembers = deptSnapshot.docs.map(doc => ({
@@ -125,7 +137,7 @@ const DepartmentDashboard = () => {
     );
   }
 
-  if (!userMember || !userMember.department) {
+  if (!userMember || (Array.isArray(userMember.department) ? userMember.department.length === 0 : !userMember.department)) {
     return (
       <div className="card text-center py-12">
         <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
@@ -193,7 +205,7 @@ const DepartmentDashboard = () => {
       <div className="card bg-gradient-to-r from-church-gold to-church-darkGold text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{userMember.department} Department</h1>
+            <h1 className="text-3xl font-bold mb-2">{primaryDepartment} Department</h1>
             <p className="opacity-90">
               {isViewer ? 'Department Overview' : 'Department Leader Dashboard'}
             </p>

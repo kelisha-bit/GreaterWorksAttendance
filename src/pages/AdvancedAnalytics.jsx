@@ -60,7 +60,7 @@ const AdvancedAnalytics = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [selectedEventType, setSelectedEventType] = useState('All');
 
-  const departments = ['All', 'Choir', 'Ushering', 'Media', 'Children Ministry', 'Youth Ministry', 'Prayer Team', 'Welfare', 'Protocol', 'Other'];
+  const departments = ['All', 'Choir', 'Music Team', 'Ushering and Welcome Team', 'Financial team', 'Media', 'Children Ministry', 'Youth Ministry', 'Women Ministry', 'Men Ministry', 'Evangelism Team', 'Follow Up Team', 'Prayer Team', 'Welfare', 'Protocol', 'Other'];
   const eventTypes = ['All', 'Sunday Service', 'Prayer Meeting', 'Bible Study', 'Department Meeting', 'Youth Service', 'Children Service', 'Special Event', 'Other'];
 
   const COLORS = ['#D4AF37', '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
@@ -250,7 +250,7 @@ const AdvancedAnalytics = () => {
       
       return {
         name: member.fullName,
-        department: member.department,
+        department: Array.isArray(member.department) ? member.department.join(', ') : member.department,
         attendanceRate: parseFloat(attendanceRate),
         sessionsAttended: memberRecords.length
       };

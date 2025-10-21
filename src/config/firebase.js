@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBE_EskZ0E3r1XfnMumLBS207fHSawazVI",
   authDomain: "gwccapp-fc67c.firebaseapp.com",
   projectId: "gwccapp-fc67c",
-  storageBucket: "gwccapp-fc67c.firebasestorage.app",
+  storageBucket: "gwccapp-fc67c.appspot.com",
   messagingSenderId: "766291132023",
   appId: "1:766291132023:web:02f541656cc36967f11072"
 };

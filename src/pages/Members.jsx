@@ -64,11 +64,18 @@ const Members = () => {
   });
 
   const departments = [
+    'All',
     'Choir',
-    'Ushering',
+    'Music Team',
+    'Ushering and Welcome Team',
+    'Financial team',
     'Media',
     'Children Ministry',
     'Youth Ministry',
+    'Women Ministry',
+    'Men Ministry',
+    'Evangelism Team',
+    'Follow Up Team',
     'Prayer Team',
     'Welfare',
     'Protocol',
@@ -125,7 +132,9 @@ const Members = () => {
       member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.phoneNumber.includes(searchTerm) ||
       member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.department.toLowerCase().includes(searchTerm.toLowerCase())
+      (Array.isArray(member.department)
+        ? member.department.some(dept => dept.toLowerCase().includes(searchTerm.toLowerCase()))
+        : member.department.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredMembers(filtered);
   };
@@ -211,7 +220,7 @@ const Members = () => {
       gender: member.gender,
       phoneNumber: member.phoneNumber,
       email: member.email || '',
-      department: member.department,
+      department: member.department || [],
       membershipType: member.membershipType,
       membershipStatus: member.membershipStatus || 'Active',
       dateOfBirth: member.dateOfBirth || '',
@@ -279,7 +288,7 @@ const Members = () => {
       gender: 'Male',
       phoneNumber: '',
       email: '',
-      department: '',
+      department: [],
       membershipType: 'Adult',
       membershipStatus: 'Active',
       dateOfBirth: '',
@@ -428,7 +437,9 @@ const Members = () => {
                     <td className="py-3 px-4 text-sm font-medium text-gray-900">{member.fullName}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.gender}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.phoneNumber}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{member.department}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {Array.isArray(member.department) ? member.department.join(', ') : member.department}
+                    </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.membershipType}</td>
                     <td className="py-3 px-4 text-sm">
                       <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
@@ -555,16 +566,21 @@ const Members = () => {
                 <div>
                   <label className="label">Department *</label>
                   <select
+                    multiple
                     value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    onChange={(e) => {
+                      const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+                      setFormData({ ...formData, department: selectedOptions });
+                    }}
                     className="input-field"
-                    required
+                    required={formData.department.length === 0}
+                    size="4"
                   >
-                    <option value="">Select Department</option>
                     {departments.map(dept => (
                       <option key={dept} value={dept}>{dept}</option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple departments</p>
                 </div>
 
                 <div>
