@@ -1,0 +1,391 @@
+/* Professional Receipt Styling */
+
+/* Receipt Container */
+.receipt-container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Church Header */
+.receipt-header {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #fef7e0 0%, #f8f0d6 100%);
+  border-bottom: 3px solid #D4AF37;
+  position: relative;
+}
+
+.receipt-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #D4AF37, #B8860B, #D4AF37);
+}
+
+.church-logo {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #D4AF37, #B8860B);
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+  box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+}
+
+.church-name {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #B8860B;
+  margin-bottom: 0.5rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.receipt-title {
+  color: #666;
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+/* Receipt Info Section */
+.receipt-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.info-section h3 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+}
+
+.info-section p {
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 500;
+}
+
+.receipt-number {
+  font-family: 'Courier New', monospace;
+  color: #B8860B;
+  font-weight: bold;
+}
+
+/* Donor Information */
+.donor-info {
+  background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 1.5rem;
+  border-left: 4px solid #D4AF37;
+}
+
+.donor-info h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 1rem;
+}
+
+.donor-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.donor-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.donor-field .label {
+  font-size: 0.75rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.donor-field .value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Donation Details */
+.donation-details {
+  background: linear-gradient(135deg, #fef7e0 0%, #f8f0d6 100%);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 1.5rem;
+  border: 2px solid #D4AF37;
+  position: relative;
+}
+
+.donation-details::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #D4AF37, #B8860B, #D4AF37);
+  border-radius: 8px;
+  z-index: -1;
+}
+
+.donation-details h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #B8860B;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.2);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.detail-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-weight: 600;
+  color: #333;
+}
+
+.donation-amount {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #B8860B;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Thank You Section */
+.thank-you {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+  border-top: 2px solid #D4AF37;
+  border-bottom: 2px solid #D4AF37;
+}
+
+.thank-you h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #B8860B;
+  margin-bottom: 0.75rem;
+}
+
+.thank-you p {
+  color: #666;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+/* Church Footer */
+.church-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: #fafafa;
+  border-top: 1px solid #e5e5e5;
+}
+
+.footer-section h4 {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.footer-section p {
+  margin: 0.25rem 0;
+  color: #666;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* Receipt Footer */
+.receipt-footer {
+  text-align: center;
+  padding: 1rem 1.5rem;
+  background: #f5f5f5;
+  border-top: 1px solid #ddd;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.receipt-footer p {
+  margin: 0.25rem 0;
+}
+
+/* Print Styles */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+  
+  .receipt-container {
+    max-width: none;
+    width: 100%;
+    box-shadow: none;
+    border-radius: 0;
+    margin: 0;
+  }
+  
+  .receipt-header {
+    background: #fef7e0 !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .church-logo {
+    background: #D4AF37 !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .donation-details {
+    background: #fef7e0 !important;
+    border: 2px solid #D4AF37 !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .donation-amount {
+    color: #B8860B !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .thank-you {
+    background: #f0f8ff !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .receipt-info,
+  .donor-info,
+  .church-footer {
+    background: #fafafa !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .receipt-footer {
+    background: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  /* Hide print buttons */
+  .print-actions {
+    display: none !important;
+  }
+  
+  /* Ensure proper page breaks */
+  .receipt-container {
+    page-break-inside: avoid;
+  }
+  
+  /* Optimize for A4 paper */
+  @page {
+    margin: 0.5in;
+    size: A4;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .receipt-container {
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .receipt-info,
+  .donor-details,
+  .church-footer {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .church-name {
+    font-size: 1.5rem;
+  }
+  
+  .donation-amount {
+    font-size: 1.25rem;
+  }
+}
+
+/* Animation for receipt generation */
+@keyframes receiptSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.receipt-container {
+  animation: receiptSlideIn 0.3s ease-out;
+}
+
+/* Hover effects for interactive elements */
+.receipt-container:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+
+/* Professional typography */
+.receipt-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+}
+
+.church-name,
+.donation-amount,
+.thank-you h3 {
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+.receipt-number,
+.donor-field .value {
+  font-family: 'Courier New', 'Monaco', monospace;
+}

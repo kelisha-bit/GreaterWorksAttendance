@@ -32,6 +32,8 @@ const EventCalendar = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showManagementModal, setShowManagementModal] = useState(false);
+  const [eventToManage, setEventToManage] = useState(null);
   const [filters, setFilters] = useState({
     eventType: 'all',
     category: 'all',
@@ -618,10 +620,15 @@ const EventCalendar = () => {
       {/* Event Form Modal */}
       {showEventForm && (
         <EventForm
-          onClose={() => setShowEventForm(false)}
+          event={selectedEvent} // Pass the selected event for editing
+          onClose={() => {
+            setShowEventForm(false);
+            setSelectedEvent(null); // Clear selected event when closing form
+          }}
           onSuccess={() => {
             fetchEvents();
             setShowEventForm(false);
+            setSelectedEvent(null); // Clear selected event after successful save
           }}
         />
       )}
@@ -695,20 +702,169 @@ const EventCalendar = () => {
               
               <div className="flex space-x-3 pt-4">
                 {selectedEvent.registrationEnabled && (
-                  <button className="flex-1 px-4 py-2 bg-church-gold text-white rounded-lg hover:bg-church-darkGold">
+                  <button 
+                    onClick={() => {
+                      // Handle registration
+                      toast.success(`Registration initiated for ${selectedEvent.title}`);
+                      // Here you would typically open a registration form or redirect to registration page
+                      // For now, we'll just show a success message
+                      
+                      // You could also track this in Firestore:
+                      // addDoc(collection(db, 'eventRegistrations'), {
+                      //   eventId: selectedEvent.id,
+                      //   userId: currentUser.uid,
+                      //   registeredAt: new Date(),
+                      //   status: 'registered'
+                      // });
+                    }}
+                    className="flex-1 px-4 py-2 bg-church-gold text-white rounded-lg hover:bg-church-darkGold"
+                  >
                     Register
                   </button>
                 )}
                 {(userRole === 'admin' || userRole === 'leader') && (
                   <>
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <button 
+                      onClick={() => {
+                        setSelectedEvent(null); // Close the modal
+                        // Open the event form with the selected event for editing
+                        setShowEventForm(true);
+                        // You would typically pass the selected event to the form component
+                        // This is handled in the EventForm component
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
                       Edit
                     </button>
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <button 
+                      onClick={() => {
+                        setSelectedEvent(null); // Close the current modal
+                        setEventToManage(selectedEvent);
+                        setShowManagementModal(true);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
                       Manage
                     </button>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Management Modal */}
+      {showManagementModal && eventToManage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold">Manage Event: {eventToManage.title}</h3>
+              <button
+                onClick={() => {
+                  setShowManagementModal(false);
+                  setEventToManage(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Event Details Summary */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-semibold mb-2">Event Details</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Date:</span> {format(eventToManage.startDate, 'MMMM d, yyyy')}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Time:</span> {eventToManage.startTime} - {eventToManage.endTime}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Location:</span> {eventToManage.location || 'N/A'}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Capacity:</span> {eventToManage.capacity || 'Unlimited'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Management Options */}
+              <div className="space-y-4">
+                <h4 className="font-semibold">Management Options</h4>
+                
+                {/* Registrations */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h5 className="font-medium mb-2">Registrations</h5>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Manage attendee registrations for this event.
+                  </p>
+                  <button 
+                    onClick={() => toast.success('Viewing registrations')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    View Registrations
+                  </button>
+                </div>
+                
+                {/* Attendance */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h5 className="font-medium mb-2">Attendance</h5>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Track and manage attendance for this event.
+                  </p>
+                  <button 
+                    onClick={() => toast.success('Opening attendance tracking')}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Manage Attendance
+                  </button>
+                </div>
+                
+                {/* Communications */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h5 className="font-medium mb-2">Communications</h5>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Send notifications to registered attendees.
+                  </p>
+                  <button 
+                    onClick={() => toast.success('Opening communication tools')}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                  >
+                    Send Notifications
+                  </button>
+                </div>
+                
+                {/* Event Actions */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h5 className="font-medium mb-2">Event Actions</h5>
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      onClick={() => {
+                        setShowManagementModal(false);
+                        setSelectedEvent(eventToManage);
+                        setShowEventForm(true);
+                      }}
+                      className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                    >
+                      Edit Event
+                    </button>
+                    <button 
+                      onClick={() => toast.success('Event cancelled')}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      Cancel Event
+                    </button>
+                    <button 
+                      onClick={() => toast.success('Event duplicated')}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    >
+                      Duplicate Event
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

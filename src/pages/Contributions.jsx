@@ -12,9 +12,14 @@ import {
   User,
   TrendingUp,
   Plus,
-  Filter
+  Filter,
+  Receipt,
+  Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import DonationReceipt from '../components/DonationReceipt';
+import { generateTypedReceiptNumber } from '../utils/receiptUtils';
+import { exportReceiptAsPDF, exportReceiptWithData, exportMultipleReceipts } from '../utils/pdfExport';
 
 const Contributions = () => {
   const { isLeader, currentUser } = useAuth();
@@ -28,6 +33,8 @@ const Contributions = () => {
   const [selectedContribution, setSelectedContribution] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterMonth, setFilterMonth] = useState('');
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [selectedContributionForReceipt, setSelectedContributionForReceipt] = useState(null);
   const [stats, setStats] = useState({
     totalTithes: 0,
     totalOfferings: 0,
@@ -74,20 +81,55 @@ const Contributions = () => {
 
   const fetchContributions = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'contributions'));
+      // Create a simple query without complex sorting or filtering that would require an index
+      const contributionsRef = collection(db, 'contributions');
+      const snapshot = await getDocs(contributionsRef);
+      
       let contributionsList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       
-      // Sort by date in JavaScript
-      contributionsList.sort((a, b) => new Date(b.date) - new Date(a.date));
+      // Sort by date in JavaScript instead of in the query
+      contributionsList.sort((a, b) => {
+        // Handle different date formats safely
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+        return dateB - dateA; // Sort descending (newest first)
+      });
+      
+      // Cache the contributions data for offline access
+      try {
+        localStorage.setItem('cachedContributions', JSON.stringify(contributionsList));
+      } catch (cacheError) {
+        console.error('Error caching contributions:', cacheError);
+      }
       
       setContributions(contributionsList);
       setFilteredContributions(contributionsList);
     } catch (error) {
       console.error('Error fetching contributions:', error);
-      toast.error('Failed to load contributions. Please check permissions.');
+      
+      // Show more specific error message
+      if (error.code === 'failed-precondition' || error.message.includes('index')) {
+        toast.error('Database index required. Please follow the link in the console to create it.');
+      } else if (error.code === 'unavailable' || error.message.includes('network')) {
+        toast.error('Network connection issue. Trying to load from cache...');
+        // Try to load from cache if available
+        try {
+          const cachedData = localStorage.getItem('cachedContributions');
+          if (cachedData) {
+            const parsedData = JSON.parse(cachedData);
+            setContributions(parsedData);
+            setFilteredContributions(parsedData);
+            toast.success('Loaded data from cache');
+          }
+        } catch (cacheError) {
+          console.error('Error loading from cache:', cacheError);
+        }
+      } else {
+        toast.error('Failed to load contributions. Please check permissions.');
+      }
     }
   };
 
@@ -182,6 +224,11 @@ const Contributions = () => {
         updatedAt: new Date().toISOString()
       };
 
+      // Generate receipt number for new contributions
+      if (!editMode) {
+        contributionData.receiptNumber = generateTypedReceiptNumber(contributionData);
+      }
+
       if (editMode && selectedContribution) {
         await updateDoc(doc(db, 'contributions', selectedContribution.id), contributionData);
         toast.success('Contribution updated successfully');
@@ -225,6 +272,89 @@ const Contributions = () => {
     } catch (error) {
       console.error('Error deleting contribution:', error);
       toast.error('Failed to delete contribution');
+    }
+  };
+
+  const handleGenerateReceipt = (contribution) => {
+    setSelectedContributionForReceipt(contribution);
+    setShowReceipt(true);
+  };
+
+  const handleCloseReceipt = () => {
+    setShowReceipt(false);
+    setSelectedContributionForReceipt(null);
+  };
+
+  const handlePrintReceipt = () => {
+    const receiptContent = document.getElementById('receipt-content');
+    if (receiptContent) {
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Donation Receipt</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+              .receipt-container { max-width: 600px; margin: 0 auto; }
+              .church-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #D4AF37; padding-bottom: 20px; }
+              .church-logo { width: 60px; height: 60px; background: #D4AF37; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; }
+              .church-name { font-size: 28px; font-weight: bold; color: #B8860B; margin-bottom: 5px; }
+              .receipt-title { color: #666; font-size: 18px; }
+              .receipt-info { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+              .info-section h3 { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+              .info-section p { font-size: 16px; margin: 0; }
+              .donor-info { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+              .donation-details { background: #fef7e0; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+              .detail-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+              .amount { font-size: 24px; font-weight: bold; color: #B8860B; }
+              .thank-you { text-align: center; padding: 30px 0; }
+              .church-footer { border-top: 1px solid #ddd; padding-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; font-size: 14px; color: #666; }
+              .footer-section h4 { font-weight: 600; color: #333; margin-bottom: 8px; }
+              .footer-section p { margin: 2px 0; }
+              .receipt-footer { text-align: center; font-size: 12px; color: #999; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="receipt-container">
+              ${receiptContent.innerHTML}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const handleDownloadReceipt = async () => {
+    try {
+      if (selectedContributionForReceipt) {
+        const filename = `donation-receipt-${selectedContributionForReceipt.memberName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+        
+        // Try to export the receipt content as PDF
+        await exportReceiptAsPDF('receipt-content', filename);
+        toast.success('Receipt downloaded successfully');
+      }
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      toast.error('Failed to download receipt. Please try printing instead.');
+    }
+  };
+
+  const handleExportAllReceipts = async () => {
+    try {
+      if (filteredContributions.length === 0) {
+        toast.error('No contributions to export');
+        return;
+      }
+
+      const filename = `all-donation-receipts-${new Date().toISOString().split('T')[0]}.pdf`;
+      await exportMultipleReceipts(filteredContributions, filename);
+      toast.success(`Exported ${filteredContributions.length} receipts successfully`);
+    } catch (error) {
+      console.error('Error exporting receipts:', error);
+      toast.error('Failed to export receipts');
     }
   };
 
@@ -284,13 +414,23 @@ const Contributions = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Financial Contributions</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center justify-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Record Contribution</span>
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handleExportAllReceipts}
+            className="btn-secondary flex items-center justify-center space-x-2"
+            disabled={filteredContributions.length === 0}
+          >
+            <Download className="w-5 h-5" />
+            <span>Export All Receipts</span>
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary flex items-center justify-center space-x-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Record Contribution</span>
+          </button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -438,6 +578,13 @@ const Contributions = () => {
                     <td className="py-3 px-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <button
+                          onClick={() => handleGenerateReceipt(contribution)}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          title="Generate Receipt"
+                        >
+                          <Receipt className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleEdit(contribution)}
                           className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                           title="Edit"
@@ -569,6 +716,16 @@ const Contributions = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Receipt Modal */}
+      {showReceipt && selectedContributionForReceipt && (
+        <DonationReceipt
+          contribution={selectedContributionForReceipt}
+          onClose={handleCloseReceipt}
+          onPrint={handlePrintReceipt}
+          onDownload={handleDownloadReceipt}
+        />
       )}
     </div>
   );

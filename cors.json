@@ -1,8 +1,8 @@
 [
   {
-    "origin": ["http://localhost:3000", "http://localhost:5173", "https://gwccapp-fc67c.web.app", "https://gwccapp-fc67c.firebaseapp.com"],
+    "origin": ["http://localhost:3000", "http://localhost:5173", "https://gwccapp-fc67c.web.app", "https://gwccapp-fc67c.firebaseapp.com", "https://greaterworksattendance.netlify.app", "*"],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
     "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "X-Requested-With", "x-goog-resumable"]
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "X-Requested-With", "x-goog-resumable", "Access-Control-Allow-Origin"]
   }
 ]

@@ -5,12 +5,12 @@ import { initializeApp } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyBE_EskZ0E3r1XfnMumLBS207fHSawazVI",
   authDomain: "gwccapp-fc67c.firebaseapp.com",
   projectId: "gwccapp-fc67c",
-  storageBucket: "gwccapp-fc67c.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  storageBucket: "gwccapp-fc67c.appspot.com",
+  messagingSenderId: "766291132023",
+  appId: "1:766291132023:web:02f541656cc36967f11072"
 };
 
 // Initialize Firebase

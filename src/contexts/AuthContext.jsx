@@ -70,6 +70,26 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(user);
       
       if (user) {
+        // Check if token is expired
+        const tokenExpirationTime = user.stsTokenManager?.expirationTime;
+        const isTokenExpired = tokenExpirationTime && Date.now() >= tokenExpirationTime;
+        
+        if (isTokenExpired) {
+          // Force token refresh
+          try {
+            await user.getIdToken(true);
+            console.log('Auth token refreshed successfully');
+          } catch (refreshError) {
+            console.error('Error refreshing token:', refreshError);
+            // Force logout if token refresh fails
+            await signOut(auth);
+            setUserRole(null);
+            setUserData(null);
+            setLoading(false);
+            return;
+          }
+        }
+        
         // Fetch user role from Firestore
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -78,8 +98,20 @@ export const AuthProvider = ({ children }) => {
             setUserRole(data.role);
             setUserData(data);
           } else {
+            // Create user document if it doesn't exist
+            await setDoc(doc(db, 'users', user.uid), {
+              email: user.email,
+              role: 'viewer',
+              name: user.displayName || '',
+              createdAt: new Date().toISOString()
+            });
             setUserRole('viewer'); // Default role
-            setUserData(null);
+            setUserData({
+              email: user.email,
+              role: 'viewer',
+              name: user.displayName || '',
+              createdAt: new Date().toISOString()
+            });
           }
         } catch (error) {
           console.error('Error fetching user role:', error);

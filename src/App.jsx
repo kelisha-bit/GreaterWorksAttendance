@@ -37,44 +37,44 @@ const viewerAllowedRoutes = [
   '/department-dashboard'
 ];
 
-const PrivateRoute = ({ children, requiredRole = null }) => {
-  const { currentUser, isViewer, isAdmin, isLeader } = useAuth();
-  const location = useLocation();
-  const isViewerRoute = viewerAllowedRoutes.some(route => {
-    if (location.pathname === route) return true;
-    // allow nested paths only when they match a full segment boundary
-    return location.pathname.startsWith(route + '/');
-  });
+function AppRoutes() {
+  const PrivateRoute = ({ children, requiredRole = null }) => {
+    const { currentUser, isViewer, isAdmin, isLeader } = useAuth();
+    const location = useLocation();
+    const isViewerRoute = viewerAllowedRoutes.some(route => {
+      if (location.pathname === route) return true;
+      // allow nested paths only when they match a full segment boundary
+      return location.pathname.startsWith(route + '/');
+    });
 
-  if (!currentUser) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
+    if (!currentUser) {
+      return <Navigate to="/login" state={{ from: location }} replace />;
+    }
 
-  // Admins have full access to everything
-  if (isAdmin) {
-    return children;
-  }
+    // Admins have full access to everything
+    if (isAdmin) {
+      return children;
+    }
 
-  // Block viewers from accessing restricted routes
-  if (isViewer && !isViewerRoute) {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
-  // Additional role-based access control if needed
-  if (requiredRole) {
-    const hasRequiredRole = requiredRole === 'admin' ? isAdmin : 
-                         requiredRole === 'leader' ? isLeader : true;
-    if (!hasRequiredRole) {
+    // Block viewers from accessing restricted routes
+    if (isViewer && !isViewerRoute) {
       return <Navigate to="/unauthorized" replace />;
     }
-  }
 
-  return children;
-};
+    // Additional role-based access control if needed
+    if (requiredRole) {
+      const hasRequiredRole = requiredRole === 'admin' ? isAdmin : 
+                           requiredRole === 'leader' ? isLeader : true;
+      if (!hasRequiredRole) {
+        return <Navigate to="/unauthorized" replace />;
+      }
+    }
 
-function AppRoutes() {
+    return children;
+  };
+
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<Suspense fallback={<div />}> <Login /> </Suspense>} />
         <Route path="/unauthorized" element={<Suspense fallback={<div />}> <Unauthorized /> </Suspense>} />
