@@ -66,7 +66,7 @@ class OfflineStorage {
       const recordWithMetadata = {
         ...record,
         timestamp: new Date().toISOString(),
-        synced: false
+        synced: 'false' // Use string instead of boolean
       };
       
       const request = store.add(recordWithMetadata);
@@ -91,7 +91,7 @@ class OfflineStorage {
       const transaction = db.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('synced');
-      const request = index.getAll(false);
+      const request = index.getAll('false');
       
       request.onsuccess = () => {
         console.log('Retrieved pending records:', request.result.length);
@@ -137,7 +137,7 @@ class OfflineStorage {
       getRequest.onsuccess = () => {
         const record = getRequest.result;
         if (record) {
-          record.synced = true;
+          record.synced = 'true'; // Use string instead of boolean
           record.syncedAt = new Date().toISOString();
           
           const updateRequest = store.put(record);
@@ -191,8 +191,8 @@ class OfflineStorage {
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('synced');
       
-      // Use a cursor to count records where synced is false
-      const request = index.openCursor(IDBKeyRange.only(false));
+      // Use a cursor to count records where synced is 'false'
+      const request = index.openCursor(IDBKeyRange.only('false'));
       let count = 0;
       
       request.onsuccess = (event) => {
@@ -219,8 +219,8 @@ class OfflineStorage {
       const transaction = db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('synced');
-      // Use IDBKeyRange to query for true values
-      const request = index.openCursor(IDBKeyRange.only(true));
+      // Use IDBKeyRange to query for 'true' values
+      const request = index.openCursor(IDBKeyRange.only('true'));
       
       let deletedCount = 0;
       
