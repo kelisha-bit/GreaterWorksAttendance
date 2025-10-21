@@ -44,6 +44,12 @@ const MyPortal = () => {
   }, [currentUser]);
 
   const fetchUserData = async () => {
+    if (!currentUser?.email) {
+      toast.error('No user email found. Please log in again.');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Find member profile by email
       const membersQuery = query(
@@ -86,20 +92,24 @@ const MyPortal = () => {
       );
       const sessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+      // Get all attendance records for this member in a single query
+      const attendanceQuery = query(
+        collection(db, 'attendance_records'),
+        where('memberId', '==', memberId)
+      );
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+      const attendanceRecords = attendanceSnapshot.docs.map(doc => doc.data());
+      
+      // Create a Set of sessionIds where member was present for O(1) lookup
+      const presentSessionIds = new Set(attendanceRecords.map(record => record.sessionId));
+
       let presentCount = 0;
       let totalSessions = sessions.length;
       const recentRecords = [];
 
-      // Check attendance for each session
+      // Check attendance for each session using the Set
       for (const session of sessions) {
-        const recordsQuery = query(
-          collection(db, 'attendance_records'),
-          where('sessionId', '==', session.id),
-          where('memberId', '==', memberId)
-        );
-        
-        const recordsSnapshot = await getDocs(recordsQuery);
-        const wasPresent = !recordsSnapshot.empty;
+        const wasPresent = presentSessionIds.has(session.id);
         
         if (wasPresent) {
           presentCount++;
@@ -108,7 +118,7 @@ const MyPortal = () => {
         // Add to recent records (last 10)
         if (recentRecords.length < 10) {
           recentRecords.push({
-            sessionName: session.sessionName,
+            sessionName: session.name || session.sessionName, // Handle both field names
             date: session.date,
             eventType: session.eventType,
             present: wasPresent
@@ -136,14 +146,13 @@ const MyPortal = () => {
       const today = new Date().toISOString().split('T')[0];
       const sessionsQuery = query(
         collection(db, 'attendance_sessions'),
+        where('date', '>=', today),
         orderBy('date', 'asc'),
         limit(5)
       );
       
       const sessionsSnapshot = await getDocs(sessionsQuery);
-      const sessions = sessionsSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(session => session.date >= today);
+      const sessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       setUpcomingSessions(sessions);
     } catch (error) {
@@ -324,7 +333,7 @@ const MyPortal = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-semibold">Attendance Rate</p>
-              <p className={`text-3xl font-bold ${getAttendanceColor(attendanceStats.percentage).replace('text-', 'text-')}`}>
+              <p className={`text-3xl font-bold ${getAttendanceColor(attendanceStats.percentage)}`}>
                 {attendanceStats.percentage}%
               </p>
             </div>
@@ -363,7 +372,11 @@ const MyPortal = () => {
               <Users className="w-5 h-5 text-church-gold" />
               <div>
                 <p className="text-xs text-gray-500">Department</p>
-                <p className="font-semibold text-gray-900">{memberProfile.department}</p>
+                <p className="font-semibold text-gray-900">
+                  {Array.isArray(memberProfile.department) 
+                    ? memberProfile.department.join(', ') 
+                    : memberProfile.department}
+                </p>
               </div>
             </div>
             
@@ -380,11 +393,15 @@ const MyPortal = () => {
               <div>
                 <p className="text-xs text-gray-500">Member Since</p>
                 <p className="font-semibold text-gray-900">
-                  {new Date(memberProfile.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {(() => {
+                    const createdAt = memberProfile.createdAt;
+                    const date = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt);
+                    return date.toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    });
+                  })()}
                 </p>
               </div>
             </div>
@@ -410,7 +427,7 @@ const MyPortal = () => {
                   key={session.id}
                   className="p-4 bg-gradient-to-r from-church-lightGold to-white rounded-lg border border-church-gold border-opacity-20"
                 >
-                  <p className="font-semibold text-gray-900">{session.sessionName}</p>
+                  <p className="font-semibold text-gray-900">{session.name || session.sessionName}</p>
                   <p className="text-sm text-gray-600">
                     {new Date(session.date).toLocaleDateString('en-US', {
                       weekday: 'long',
