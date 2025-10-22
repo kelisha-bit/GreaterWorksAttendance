@@ -4,7 +4,6 @@ import {
   addDoc, 
   query, 
   orderBy, 
-  onSnapshot,
   deleteDoc,
   doc,
   updateDoc,
@@ -19,6 +18,7 @@ import {
 } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { safeOnSnapshot, getConnectionStatus } from '../utils/firestoreHandler.mjs';
 import { 
   Image as ImageIcon, 
   Upload, 
@@ -77,24 +77,27 @@ const PhotoGallery = () => {
 
   // Fetch photos
   useEffect(() => {
-    const q = query(
-      collection(db, 'photo_gallery'),
-      orderBy('uploadedAt', 'desc')
-    );
+    // Check connection status
+    const connectionStatus = getConnectionStatus();
+    if (connectionStatus === 'offline') {
+      toast.warning('You are currently offline. Showing cached photos if available.');
+    }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const photosData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setPhotos(photosData);
-      setFilteredPhotos(photosData);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching photos:', error);
-      toast.error('Failed to load photos');
-      setLoading(false);
-    });
+    // Use safe Firestore handler with offline support
+    const unsubscribe = safeOnSnapshot(
+      'photo_gallery',
+      { orderByFields: [['uploadedAt', 'desc']] },
+      (photosData) => {
+        setPhotos(photosData);
+        setFilteredPhotos(photosData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching photos:', error);
+        toast.error('Failed to load photos. Using cached data if available.');
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);

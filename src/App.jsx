@@ -27,14 +27,19 @@ const PhotoGallery = lazy(() => import('./pages/PhotoGallery'));
 const Settings = lazy(() => import('./pages/Settings'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+// Ministry Components
+const MinistryDashboard = lazy(() => import('./pages/MinistryDashboard'));
+const MinistryManagement = lazy(() => import('./pages/MinistryManagement'));
 
 // Routes accessible by viewers
 const viewerAllowedRoutes = [
+  '/', // Dashboard
   '/my-portal',
   '/events',
   '/gallery',
   '/members',
-  '/department-dashboard'
+  '/department-dashboard',
+  '/ministries'
 ];
 
 function AppRoutes() {
@@ -91,6 +96,46 @@ function AppRoutes() {
           <Route path="my-portal" element={<Suspense fallback={<div />}> <MyPortal /> </Suspense>} />
           <Route path="events" element={<Suspense fallback={<div />}> <EventCalendar /> </Suspense>} />
           <Route path="gallery" element={<Suspense fallback={<div />}> <PhotoGallery /> </Suspense>} />
+          
+          {/* Ministry routes */}
+          <Route path="ministries">
+            <Route index element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <MinistryDashboard />
+              </Suspense>
+            } />
+            <Route path="manage" element={
+              <PrivateRoute requiredRole="admin">
+                <Suspense fallback={<div>Loading...</div>}>
+                  <MinistryManagement />
+                </Suspense>
+              </PrivateRoute>
+            } />
+            <Route path="manage/:ministryId" element={
+              <PrivateRoute requiredRole="admin">
+                <Suspense fallback={<div>Loading...</div>}>
+                  <MinistryManagement />
+                </Suspense>
+              </PrivateRoute>
+            } />
+          </Route>
+          <Route 
+            path="ministry-management" 
+            element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <MinistryManagement />
+              </Suspense>
+            } 
+          />
+          <Route path="ministries" element={<Suspense fallback={<div />}> <MinistryDashboard /> </Suspense>} />
+          <Route path="ministries/manage" element={
+            <PrivateRoute requiredRole="admin">
+              <Suspense fallback={<div />}> <MinistryManagement /> </Suspense>
+            </PrivateRoute>
+          } />
+          
+          {/* Redirect /ministry to /ministries */}
+          <Route path="ministry" element={<Navigate to="/ministries" replace />} />
           
           {/* Members list - viewable by all authenticated users */}
           <Route path="members" element={<Suspense fallback={<div />}> <Members /> </Suspense>} />
@@ -188,6 +233,9 @@ function App() {
       <OfflineIndicator />
       <Toaster 
         position="top-right"
+        containerStyle={{
+          zIndex: 9999
+        }}
         toastOptions={{
           duration: 3000,
           style: {

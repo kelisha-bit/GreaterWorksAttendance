@@ -45,6 +45,14 @@ const Layout = () => {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'My Portal', href: '/my-portal', icon: UserCircle },
     { name: 'My Department', href: '/department-dashboard', icon: Briefcase },
+    { 
+      name: 'Ministries', 
+      icon: Church, 
+      items: [
+        { name: 'My Ministries', href: '/ministries' },
+        { name: 'Manage Ministries', href: '/ministries/manage', adminOnly: true }
+      ]
+    },
     { name: 'Members', href: '/members', icon: Users },
     { name: 'Visitors', href: '/visitors', icon: UserPlus, leaderOnly: true },
     { name: 'Events Calendar', href: '/events', icon: Calendar },
@@ -109,9 +117,67 @@ const Layout = () => {
               if (item.adminOnly && userRole !== 'admin') {
                 return null;
               }
-              
+
               const Icon = item.icon;
-              const isActive = location.pathname === item.href;
+              const isActive = location.pathname === item.href || 
+                             (item.items && item.items.some(subItem => location.pathname === subItem.href));
+              
+              // Handle dropdown items
+              if (item.items) {
+                return (
+                  <div key={item.name} className="space-y-1">
+                    <div 
+                      className={`flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer ${
+                        isActive 
+                          ? 'bg-church-lightGold text-church-darkGold font-semibold' 
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      onClick={() => {
+                        const submenu = document.getElementById(`${item.name.toLowerCase()}-submenu`);
+                        if (submenu) {
+                          submenu.classList.toggle('hidden');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Icon className="w-5 h-5" />
+                        <span>{item.name}</span>
+                      </div>
+                      <svg 
+                        className={`w-4 h-4 transition-transform ${isActive ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    <div id={`${item.name.toLowerCase()}-submenu`} className={`${isActive ? 'block' : 'hidden'} pl-8 space-y-1`}>
+                      {item.items.map((subItem) => {
+                        if (subItem.adminOnly && userRole !== 'admin') return null;
+                        if (subItem.leaderOnly && userRole !== 'admin' && userRole !== 'leader') return null;
+                        
+                        return (
+                          <Link
+                            key={subItem.name}
+                            to={subItem.href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={`block px-4 py-2 text-sm rounded-md transition-colors ${
+                              location.pathname === subItem.href
+                                ? 'bg-church-lightGold text-church-darkGold font-medium'
+                                : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {subItem.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Regular navigation item
               return (
                 <Link
                   key={item.name}

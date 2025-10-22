@@ -4,7 +4,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      // Include .jsx, .js, and .mjs files
+      include: ['**/*.jsx', '**/*.js', '**/*.mjs'],
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['church-logo.png'],
@@ -36,5 +39,18 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true
+  },
+  // Add this to handle .js files as ES modules
+  esbuild: {
+    loader: 'jsx',
+    include: /.*\.jsx?$/,
+    exclude: []
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        '.js': 'jsx'
+      }
+    }
   }
 })

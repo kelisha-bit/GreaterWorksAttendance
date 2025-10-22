@@ -19,6 +19,18 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'leader'];
     }
     
+    // Helper function to check if user is a member of a ministry
+    function isMinistryMember(ministryId) {
+      return isAuthenticated() && 
+             (request.auth.uid in get(/databases/$(database)/documents/ministries/$(ministryId)).data.members);
+    }
+    
+    // Helper function to check if user is a leader of a ministry
+    function isMinistryLeader(ministryId) {
+      return isAuthenticated() && 
+             (request.auth.uid in get(/databases/$(database)/documents/ministries/$(ministryId)).data.leaders);
+    }
+    
     // Users collection - stores user roles and permissions
     match /users/{userId} {
       allow read: if isAuthenticated();
@@ -86,6 +98,34 @@ service cloud.firestore {
       allow write: if hasRole('admin');
     }
     
+    // Ministries collection - church ministries and groups
+    match /ministries/{ministryId} {
+      // Allow read if user is authenticated
+      allow read: if isAuthenticated();
+      
+      // Allow write if user is an admin or a leader of the ministry
+      allow update, delete: if hasRole('admin') || 
+        (isAuthenticated() && request.auth.uid in resource.data.leaders);
+      
+      // Allow creation of new ministries by admins and leaders
+      allow create: if isAuthenticated() && (hasRole('admin') || hasRole('leader'));
+      
+      // Allow adding members/leaders by admins or existing leaders
+      allow update: if (
+        // Check if the update is only adding members/leaders
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'leaders']) &&
+        (
+          hasRole('admin') || 
+          (isAuthenticated() && request.auth.uid in resource.data.leaders)
+        )
+      );
+    }
+    
+    // Allow querying the ministries collection for all authenticated users
+    match /ministries {
+      allow list: if isAuthenticated();
+    }
+    
     // Photo gallery collection - event photos and member photos
     match /photo_gallery/{photoId} {
       allow read: if isAuthenticated();
@@ -125,6 +165,46 @@ service cloud.firestore {
         request.auth.uid == resource.data.userId || 
         hasRole('admin')
       );
+    }
+    
+    // Ministries collection - ministry management
+    match /ministries/{ministryId} {
+      allow read: if isAuthenticated();
+      allow create: if hasRole('admin');
+      allow update: if hasRole('admin') || isMinistryLeader(ministryId);
+      allow delete: if hasRole('admin');
+      
+      // Ministry members subcollection
+      match /members/{memberId} {
+        allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+        allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
+        allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
+      }
+      
+      // Ministry announcements subcollection
+      match /announcements/{announcementId} {
+        allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+        allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
+        allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
+      }
+      
+      // Ministry resources subcollection
+      match /resources/{resourceId} {
+        allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+        allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
+        allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
+      }
+      
+      // Ministry messages subcollection (for chat)
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+        allow create: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+        allow update, delete: if isAuthenticated() && (
+          (resource.data.senderId == request.auth.uid) || 
+          isMinistryLeader(ministryId) || 
+          hasRole('admin')
+        );
+      }
     }
   }
 }

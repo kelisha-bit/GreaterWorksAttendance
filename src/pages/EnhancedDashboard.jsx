@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -22,7 +22,7 @@ import {
 import { format } from 'date-fns';
 
 const EnhancedDashboard = () => {
-  const { userRole, currentUser } = useAuth();
+  const { userRole, currentUser, isViewer, isLeader } = useAuth();
   const [stats, setStats] = useState({
     totalMembers: 0,
     totalVisitors: 0,
@@ -79,8 +79,8 @@ const EnhancedDashboard = () => {
 
       setRecentSessions(recentSessions);
 
-      // Admin/Leader specific data
-      if (userRole === 'admin' || userRole === 'leader') {
+      // Admin/Leader specific data - viewers get limited data
+      if (userRole === 'admin' || userRole === 'leader' || userRole === 'viewer') {
         // Fetch visitors
         const visitorsSnapshot = await getDocs(collection(db, 'visitors'));
         const visitors = visitorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -263,41 +263,46 @@ const EnhancedDashboard = () => {
         title: 'Register Member',
         description: 'Add a new church member',
         icon: UserPlus,
-        link: '/members',
+        link: isViewer ? '#' : '/members',
         color: 'bg-blue-500',
-        show: userRole === 'admin' || userRole === 'leader'
+        show: isLeader, // Only show for leaders/admins
+        disabled: isViewer
       },
       {
         title: 'Register Visitor',
         description: 'Add a new visitor',
         icon: UserCheck,
-        link: '/visitors',
+        link: isViewer ? '#' : '/visitors',
         color: 'bg-orange-500',
-        show: userRole === 'admin' || userRole === 'leader'
+        show: isLeader, // Only show for leaders/admins
+        disabled: isViewer
       },
       {
         title: 'Create Session',
         description: 'Start new attendance session',
         icon: PlusCircle,
-        link: '/attendance',
+        link: isViewer ? '#' : '/attendance',
         color: 'bg-green-500',
-        show: userRole === 'admin' || userRole === 'leader'
+        show: isLeader, // Only show for leaders/admins
+        disabled: isViewer
       },
       {
         title: 'Record Contribution',
         description: 'Add financial contribution',
         icon: DollarSign,
-        link: '/contributions',
+        link: isViewer ? '#' : '/contributions',
         color: 'bg-yellow-500',
-        show: userRole === 'admin' || userRole === 'leader'
+        show: isLeader, // Only show for leaders/admins
+        disabled: isViewer
       },
       {
         title: 'View Reports',
         description: 'Check attendance analytics',
         icon: BarChart3,
-        link: '/reports',
+        link: isViewer ? '#' : '/reports',
         color: 'bg-purple-500',
-        show: true
+        show: true,
+        disabled: isViewer
       },
       {
         title: 'My Portal',
@@ -305,7 +310,7 @@ const EnhancedDashboard = () => {
         icon: Eye,
         link: '/my-portal',
         color: 'bg-indigo-500',
-        show: userRole !== 'admin' && userRole !== 'leader'
+        show: userRole !== 'admin' && userRole !== 'leader' || isViewer
       }
     ];
 
@@ -323,21 +328,31 @@ const EnhancedDashboard = () => {
   const statCards = getStatCards();
   const quickActions = getQuickActions();
 
+  // Render the dashboard
   return (
     <div className="space-y-6">
       {/* Welcome Header - Role-based */}
-      <div className="card bg-gradient-to-r from-church-gold to-church-darkGold text-white">
+      <div className="card bg-gradient-to-r from-church-gold to-church-darkGold text-white relative">
+        {isViewer && (
+          <div className="absolute -top-2 -right-2 bg-gray-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+            View Only
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">
-              {userRole === 'admin' && 'Admin Dashboard'}
-              {userRole === 'leader' && 'Leader Dashboard'}
-              {userRole !== 'admin' && userRole !== 'leader' && 'Member Dashboard'}
-            </h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-2xl font-bold mb-2">
+                {userRole === 'admin' && 'Admin Dashboard'}
+                {userRole === 'leader' && 'Leader Dashboard'}
+                {userRole === 'viewer' && 'Viewer Dashboard'}
+                {userRole !== 'admin' && userRole !== 'leader' && userRole !== 'viewer' && 'Member Dashboard'}
+              </h1>
+            </div>
             <p className="opacity-90">
               {userRole === 'admin' && 'Full system access and management'}
               {userRole === 'leader' && 'Manage your department and track progress'}
-              {userRole !== 'admin' && userRole !== 'leader' && 'Welcome to Greater Works Church'}
+              {userRole === 'viewer' && 'View-only access to system information'}
+              {userRole !== 'admin' && userRole !== 'leader' && userRole !== 'viewer' && 'Welcome to Greater Works Church'}
             </p>
           </div>
           <div className="hidden md:block">
@@ -352,48 +367,70 @@ const EnhancedDashboard = () => {
 
       {/* Stats Grid - Dynamic based on role */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className="card hover:shadow-lg transition-shadow">
+        {statCards.map((stat, index) => (
+          <div key={index} className="h-full">
+            <div className={`card h-full ${stat.color} text-white`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-sm font-medium opacity-90">{stat.title}</p>
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                  {stat.change !== undefined && (
+                    <p className={`text-xs mt-1 ${stat.change >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                      {stat.change >= 0 ? '↑' : '↓'} {Math.abs(stat.change)}% from last period
+                    </p>
+                  )}
                 </div>
-                <div className={`${stat.bgColor} p-3 rounded-lg`}>
-                  <Icon className={`w-6 h-6 ${stat.textColor}`} />
+                <div className="p-3 rounded-full bg-black bg-opacity-10">
+                  <stat.icon className="w-6 h-6" />
                 </div>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions section */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          {isViewer ? 'Available Actions' : 'Quick Actions'}
+        </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {quickActions.map((action, index) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={index}
-                to={action.link}
-                className="card hover:shadow-lg transition-all cursor-pointer group hover:scale-105"
-              >
-                <div className="flex items-start space-x-4">
-                  <div className={`${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform`}>
-                    <Icon className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">{action.title}</h3>
-                    <p className="text-sm text-gray-600">{action.description}</p>
-                  </div>
+          {quickActions.map((action, index) => (
+            <Link
+              key={index}
+              to={action.link}
+              className={`card transition-shadow ${
+                action.disabled 
+                  ? 'opacity-60 cursor-not-allowed' 
+                  : 'hover:shadow-lg cursor-pointer group'
+              }`}
+              onClick={(e) => {
+                if (action.disabled) {
+                  e.preventDefault();
+                }
+              }}
+              aria-disabled={action.disabled}
+            >
+              <div className="flex items-start space-x-4">
+                <div 
+                  className={`${action.color} p-3 rounded-lg ${
+                    !action.disabled ? 'group-hover:scale-110' : ''
+                  } transition-transform`}
+                >
+                  <action.icon className="w-6 h-6 text-white" />
                 </div>
-              </Link>
-            );
-          })}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">
+                    {action.title}
+                    {action.disabled && (
+                      <span className="ml-2 text-xs text-gray-500">(View Only)</span>
+                    )}
+                  </h3>
+                  <p className="text-sm text-gray-600">{action.description}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
 

@@ -14,8 +14,9 @@ import {
   Download,
   X
 } from 'lucide-react';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { safeQuery, getConnectionStatus, addConnectionListener } from '../utils/firestoreHandler.mjs';
 import { useAuth } from '../contexts/AuthContext';
 import EventForm from '../components/EventForm';
 import toast from 'react-hot-toast';
@@ -34,6 +35,7 @@ const EventCalendar = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showManagementModal, setShowManagementModal] = useState(false);
   const [eventToManage, setEventToManage] = useState(null);
+  const [isOffline, setIsOffline] = useState(getConnectionStatus() === 'offline');
   const [filters, setFilters] = useState({
     eventType: 'all',
     category: 'all',
@@ -71,6 +73,19 @@ const EventCalendar = () => {
   }, [currentDate, view]);
 
   useEffect(() => {
+    const unsubscribe = addConnectionListener((status) => {
+      setIsOffline(status === 'offline');
+      if (status === 'online' && events.length === 0) {
+        // Retry fetching events when connection is restored
+        fetchEvents();
+      }
+    });
+    
+    return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, searchTerm, filters]);
@@ -78,7 +93,15 @@ const EventCalendar = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const eventsRef = collection(db, 'events');
+      
+      // Check connection status
+      const connectionStatus = getConnectionStatus();
+      if (connectionStatus === 'offline') {
+        toast.warning('You are currently offline. Showing cached events if available.', {
+          id: 'offline-toast',
+          duration: 3000
+        });
+      }
       
       // Calculate date range based on view
       let startDate, endDate;
@@ -101,32 +124,49 @@ const EventCalendar = () => {
       endDate = new Date(endDate);
       endDate.setHours(23, 59, 59, 999);
 
-      // Query with range filter
-      const q = query(
-        eventsRef,
-        where('startDate', '>=', Timestamp.fromDate(startDate)),
-        where('startDate', '<=', Timestamp.fromDate(endDate))
-      );
+      // Use safe query with error handling and offline support
+      const eventsData = await safeQuery('events', {
+        whereConditions: [
+          ['startDate', '>=', Timestamp.fromDate(startDate)],
+          ['startDate', '<=', Timestamp.fromDate(endDate)]
+        ],
+        useCache: true
+      });
 
-      const snapshot = await getDocs(q);
-      const eventsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        startDate: doc.data().startDate?.toDate(),
-        endDate: doc.data().endDate?.toDate()
+      // Convert Firestore timestamps to JavaScript Date objects
+      const processedEvents = eventsData.map(event => ({
+        ...event,
+        startDate: event.startDate?.toDate ? event.startDate.toDate() : new Date(event.startDate),
+        endDate: event.endDate?.toDate ? event.endDate.toDate() : new Date(event.endDate)
       }));
 
-      console.log('Fetched events:', eventsData.length, 'events');
+      console.log('Fetched events:', processedEvents.length, 'events');
       console.log('Date range:', startDate, 'to', endDate);
-      console.log('Events:', eventsData);
 
       // Sort events by startDate on the client side
-      eventsData.sort((a, b) => a.startDate - b.startDate);
+      processedEvents.sort((a, b) => a.startDate - b.startDate);
 
-      setEvents(eventsData);
+      setEvents(processedEvents);
+      
+      // If we were offline but now have events, we're back online
+      if (isOffline && processedEvents.length > 0) {
+        toast.success('Connection restored. Events updated.', {
+          id: 'connection-restored',
+          duration: 3000
+        });
+      }
     } catch (error) {
       console.error('Error fetching events:', error);
-      toast.error('Failed to load events');
+      
+      if (error.message?.includes('ERR_ABORTED') || error.code === 'unavailable') {
+        toast.error('Network connection issue. Using cached data if available.', {
+          id: 'connection-error',
+          duration: 3000
+        });
+        setIsOffline(true);
+      } else {
+        toast.error('Failed to load events');
+      }
     } finally {
       setLoading(false);
     }
@@ -457,15 +497,23 @@ const EventCalendar = () => {
           <h1 className="text-2xl font-bold text-gray-900">Event Calendar</h1>
           <p className="text-gray-600 mt-1">Manage church events and activities</p>
         </div>
-        {(userRole === 'admin' || userRole === 'leader') && (
-          <button
-            onClick={() => setShowEventForm(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-church-gold text-white rounded-lg hover:bg-church-darkGold transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Create Event</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Offline indicator */}
+          {isOffline && (
+            <div className="bg-amber-100 text-amber-800 px-3 py-1 rounded-md flex items-center text-sm">
+              <X className="w-4 h-4 mr-1" /> Offline Mode
+            </div>
+          )}
+          {(userRole === 'admin' || userRole === 'leader') && (
+            <button
+              onClick={() => setShowEventForm(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-church-gold text-white rounded-lg hover:bg-church-darkGold transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Event</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Controls */}
