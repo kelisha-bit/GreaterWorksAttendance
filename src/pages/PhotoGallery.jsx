@@ -18,7 +18,7 @@ import {
 } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { safeOnSnapshot, getConnectionStatus } from '../utils/firestoreHandler.mjs';
+import { setupListener, getConnectionStatus } from '../utils/firestoreHandler.mjs';
 import { 
   Image as ImageIcon, 
   Upload, 
@@ -84,7 +84,7 @@ const PhotoGallery = () => {
     }
 
     // Use safe Firestore handler with offline support
-    const unsubscribe = safeOnSnapshot(
+    const unsubscribe = setupListener(
       'photo_gallery',
       { orderByFields: [['uploadedAt', 'desc']] },
       (photosData) => {
