@@ -103,22 +103,22 @@ service cloud.firestore {
       // Allow read if user is authenticated
       allow read: if isAuthenticated();
       
-      // Allow write if user is an admin or a leader of the ministry
-      allow update, delete: if hasRole('admin') || 
-        (isAuthenticated() && request.auth.uid in resource.data.leaders);
-      
       // Allow creation of new ministries by admins and leaders
-      allow create: if isAuthenticated() && (hasRole('admin') || hasRole('leader'));
+      allow create: if isAdminOrLeader();
       
-      // Allow adding members/leaders by admins or existing leaders
-      allow update: if (
-        // Check if the update is only adding members/leaders
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'leaders']) &&
-        (
-          hasRole('admin') || 
-          (isAuthenticated() && request.auth.uid in resource.data.leaders)
-        )
-      );
+      // Allow update if user is admin or a leader of this ministry
+      allow update: if isAdminOrLeader() || 
+                   (isAuthenticated() && request.auth.uid in resource.data.leaders);
+      
+      // Only allow delete if user is admin
+      allow delete: if hasRole('admin');
+      
+      // Subcollections
+      match /{document=**} {
+        allow read: if isAuthenticated();
+        allow write: if isAdminOrLeader() || 
+                    (isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/ministries/$(ministryId)).data.leaders);
+      }
     }
     
     // Allow querying the ministries collection for all authenticated users
@@ -167,19 +167,36 @@ service cloud.firestore {
       );
     }
     
-    // Ministries collection - ministry management
-    match /ministries/{ministryId} {
-      allow read: if isAuthenticated();
-      allow create: if hasRole('admin');
-      allow update: if hasRole('admin') || isMinistryLeader(ministryId);
-      allow delete: if hasRole('admin');
-      
-      // Ministry members subcollection
-      match /members/{memberId} {
-        allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
-        allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
-        allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
-      }
+    // Ministry members subcollection
+    match /ministries/{ministryId}/members/{memberId} {
+      allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+      allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
+      allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
+    }
+    
+    // Ministry announcements subcollection
+    match /ministries/{ministryId}/announcements/{announcementId} {
+      allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+      allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
+      allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
+    }
+    
+    // Ministry resources subcollection
+    match /ministries/{ministryId}/resources/{resourceId} {
+      allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+      allow create, update: if hasRole('admin') || isMinistryLeader(ministryId);
+      allow delete: if hasRole('admin') || isMinistryLeader(ministryId);
+    }
+    
+    // Ministry messages subcollection (for chat)
+    match /ministries/{ministryId}/messages/{messageId} {
+      allow read: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+      allow create: if isAuthenticated() && (isMinistryMember(ministryId) || isMinistryLeader(ministryId) || hasRole('admin'));
+      allow update, delete: if isAuthenticated() && (
+        (resource.data.senderId == request.auth.uid) || 
+        isMinistryLeader(ministryId) || 
+        hasRole('admin')
+      );
       
       // Ministry announcements subcollection
       match /announcements/{announcementId} {
