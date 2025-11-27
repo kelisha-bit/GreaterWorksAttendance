@@ -65,9 +65,28 @@ service cloud.firestore {
       allow create, update, delete: if hasRole('admin');
     }
     
+    // Member groups collection - home cells and other small groups
+    match /member_groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
     // Contributions collection - financial records
     match /contributions/{contributionId} {
       allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    match /funds/{fundId} {
+      allow read: if isAdminOrLeader();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    match /transactions/{transactionId} {
+      allow read: if isAdminOrLeader();
       allow create, update: if isAdminOrLeader();
       allow delete: if hasRole('admin');
     }
