@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  useMembers, 
+  useAttendanceSessions, 
+  useAllAttendanceRecords 
+} from '../hooks/useAttendanceData';
 import { 
   Award, 
   Trophy, 
@@ -22,11 +27,11 @@ import {
 import toast from 'react-hot-toast';
 
 const Achievements = () => {
-  const { currentUser, userRole } = useAuth();
-  const [members, setMembers] = useState([]);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const { userRole } = useAuth();
+  const { members, loading: membersLoading } = useMembers();
+  const { sessions, loading: sessionsLoading } = useAttendanceSessions();
+  const { allRecords, loading: recordsLoading } = useAllAttendanceRecords();
   const [memberStats, setMemberStats] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [view, setView] = useState('badges'); // badges, leaderboard, milestones
 
   // Badge definitions
@@ -160,52 +165,39 @@ const Achievements = () => {
   ];
 
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      // Fetch members
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const membersList = membersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Fetch attendance records
-      const recordsSnapshot = await getDocs(collection(db, 'attendance_records'));
-      const recordsList = recordsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Fetch attendance sessions for date info
-      const sessionsSnapshot = await getDocs(collection(db, 'attendance_sessions'));
-      const sessionsList = sessionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      setMembers(membersList);
-      setAttendanceRecords(recordsList);
-
-      // Calculate stats for each member
-      const stats = calculateMemberStats(membersList, recordsList, sessionsList);
-      setMemberStats(stats);
-
-      // Award badges automatically
-      await awardBadges(stats);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load achievements');
-    } finally {
-      setLoading(false);
+    if (membersLoading || sessionsLoading || recordsLoading) return;
+    if (!members.length || !sessions.length) {
+      setMemberStats([]);
+      return;
     }
-  };
+
+    try {
+      const stats = calculateMemberStats(members, allRecords, sessions);
+      setMemberStats(stats);
+    } catch (error) {
+      console.error('Error calculating member stats:', error);
+      toast.error('Failed to process achievements data');
+    }
+  }, [members, allRecords, sessions, membersLoading, sessionsLoading, recordsLoading]);
+
+  useEffect(() => {
+    if (memberStats.length === 0) return;
+
+    const persistBadges = async () => {
+      try {
+        await awardBadges(memberStats);
+      } catch (error) {
+        console.error('Error saving achievements:', error);
+      }
+    };
+
+    persistBadges();
+  }, [memberStats]);
 
   const calculateMemberStats = (members, records, sessions) => {
     return members.map(member => {
-      const memberRecords = records.filter(r => r.memberId === member.memberId);
+      const identifiers = [member.memberId, member.id].filter(Boolean);
+      const memberRecords = records.filter(r => identifiers.includes(r.memberId));
       const totalAttendance = memberRecords.length;
 
       // Sort records by date
@@ -308,6 +300,7 @@ const Achievements = () => {
     const monthGroups = {};
     
     sessions.forEach(session => {
+      if (!session?.date) return;
       const monthKey = session.date.substring(0, 7); // YYYY-MM
       if (!monthGroups[monthKey]) {
         monthGroups[monthKey] = { total: 0, attended: 0 };
@@ -334,6 +327,7 @@ const Achievements = () => {
     const yearGroups = {};
     
     sessions.forEach(session => {
+      if (!session?.date) return;
       const year = session.date.substring(0, 4);
       if (!yearGroups[year]) {
         yearGroups[year] = { total: 0, attended: 0 };
@@ -415,16 +409,27 @@ const Achievements = () => {
   const getMilestoneMembers = () => {
     const milestones = [100, 50, 25, 10, 5];
     const result = [];
+    const seen = new Set();
 
     milestones.forEach(milestone => {
-      const reachedMilestone = memberStats.filter(s => s.totalAttendance === milestone);
-      reachedMilestone.forEach(member => {
-        result.push({ ...member, milestone });
-      });
+      memberStats
+        .filter(s => s.totalAttendance >= milestone)
+        .forEach(stat => {
+          const memberKey = stat.member.memberId || stat.member.id;
+          if (seen.has(memberKey)) return;
+          seen.add(memberKey);
+          result.push({ ...stat, milestone });
+        });
     });
 
     return result;
   };
+
+  const loading = membersLoading || sessionsLoading || recordsLoading;
+
+  const topPerformers = useMemo(() => getTopPerformers(), [memberStats]);
+  const streakLeaders = useMemo(() => getStreakLeaders(), [memberStats]);
+  const milestoneMembers = useMemo(() => getMilestoneMembers(), [memberStats]);
 
   if (loading) {
     return (
@@ -433,10 +438,6 @@ const Achievements = () => {
       </div>
     );
   }
-
-  const topPerformers = getTopPerformers();
-  const streakLeaders = getStreakLeaders();
-  const milestoneMembers = getMilestoneMembers();
 
   return (
     <div className="space-y-6">

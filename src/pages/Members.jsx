@@ -40,7 +40,8 @@ const Members = () => {
     gender: 'Male',
     phoneNumber: '',
     email: '',
-    department: '',
+    department: [],
+    ministry: '',
     membershipType: 'Adult',
     membershipStatus: 'Active',
     dateOfBirth: '',
@@ -79,6 +80,21 @@ const Members = () => {
     'Prayer Team',
     'Welfare',
     'Protocol',
+    'Other'
+  ];
+
+  const ministryOptions = [
+    'Men Ministry',
+    'Women Ministry',
+    'Youth Ministry',
+    'Children Ministry',
+    'Choir',
+    'Prayer Ministry',
+    'Evangelism Ministry',
+    'Ushering Ministry',
+    'Media Ministry',
+    'Hospitality Ministry',
+    'Counseling Ministry',
     'Other'
   ];
 
@@ -148,8 +164,12 @@ const Members = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.fullName || !formData.phoneNumber || !formData.department) {
-      toast.error('Please fill in all required fields');
+    const hasDepartment = Array.isArray(formData.department)
+      ? formData.department.length > 0
+      : !!formData.department;
+
+    if (!formData.fullName || !formData.phoneNumber || !hasDepartment || !formData.ministry) {
+      toast.error('Please fill in all required fields, including ministry selection');
       return;
     }
 
@@ -169,6 +189,7 @@ const Members = () => {
         phoneNumber: formData.phoneNumber,
         email: formData.email || '',
         department: formData.department,
+        ministry: formData.ministry || '',
         membershipType: formData.membershipType,
         membershipStatus: formData.membershipStatus || 'Active',
         dateOfBirth: formData.dateOfBirth || '',
@@ -221,6 +242,7 @@ const Members = () => {
       phoneNumber: member.phoneNumber,
       email: member.email || '',
       department: member.department || [],
+      ministry: member.ministry || '',
       membershipType: member.membershipType,
       membershipStatus: member.membershipStatus || 'Active',
       dateOfBirth: member.dateOfBirth || '',
@@ -289,6 +311,7 @@ const Members = () => {
       phoneNumber: '',
       email: '',
       department: [],
+      ministry: '',
       membershipType: 'Adult',
       membershipStatus: 'Active',
       dateOfBirth: '',
@@ -420,6 +443,7 @@ const Members = () => {
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Gender</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Department</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ministry</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
@@ -439,6 +463,9 @@ const Members = () => {
                     <td className="py-3 px-4 text-sm text-gray-600">{member.phoneNumber}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">
                       {Array.isArray(member.department) ? member.department.join(', ') : member.department}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {member.ministry || '—'}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{member.membershipType}</td>
                     <td className="py-3 px-4 text-sm">
@@ -581,6 +608,23 @@ const Members = () => {
                     ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple departments</p>
+                </div>
+
+                <div>
+                  <label className="label">Ministry *</label>
+                  <select
+                    value={formData.ministry}
+                    onChange={(e) => setFormData({ ...formData, ministry: e.target.value })}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Select a ministry</option>
+                    {ministryOptions.map(ministry => (
+                      <option key={ministry} value={ministry}>
+                        {ministry}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

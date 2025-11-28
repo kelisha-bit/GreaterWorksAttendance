@@ -71,6 +71,38 @@ service cloud.firestore {
       allow create, update: if isAdminOrLeader();
       allow delete: if hasRole('admin');
     }
+
+    // Generic user-created groups directory
+    match /groups/{groupId} {
+      allow read: if isAuthenticated() && (
+        !('visibility' in resource.data) || resource.data.visibility == 'public' || hasRole('admin') || hasRole('leader') || request.auth.uid == resource.data.groupOwner || request.auth.uid in resource.data.moderators
+      );
+      allow create: if isAdminOrLeader();
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.groupOwner || hasRole('admin'));
+    }
+
+    // Group memberships - many-to-many
+    match /group_memberships/{membershipId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || isAdminOrLeader() || (
+          get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.groupOwner == request.auth.uid
+        ) || (
+          request.auth.uid in get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.moderators
+        )
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId || 
+        isAdminOrLeader() || 
+        get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.groupOwner == request.auth.uid ||
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.moderators
+      );
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        isAdminOrLeader() || get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.groupOwner == request.auth.uid || 
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.moderators
+      );
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || hasRole('admin'));
+    }
     
     // Contributions collection - financial records
     match /contributions/{contributionId} {
@@ -86,6 +118,36 @@ service cloud.firestore {
     }
     
     match /transactions/{transactionId} {
+      allow read: if isAdminOrLeader();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    match /budgets/{budgetId} {
+      allow read: if isAdminOrLeader();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+    
+    match /audit_logs/{logId} {
+      allow read: if hasRole('admin');
+      allow create: if isAdminOrLeader();
+      allow update, delete: if hasRole('admin');
+    }
+
+    match /fund_categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+
+    match /fund_allocations/{allocationId} {
+      allow read: if isAdminOrLeader();
+      allow create, update: if isAdminOrLeader();
+      allow delete: if hasRole('admin');
+    }
+
+    match /category_usage/{usageId} {
       allow read: if isAdminOrLeader();
       allow create, update: if isAdminOrLeader();
       allow delete: if hasRole('admin');

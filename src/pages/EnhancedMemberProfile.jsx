@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useRealtimeMemberData, useRealtimeContributions, useRealtimeAttendance } from '../hooks/useRealtimeMemberData';
 import { 
   ArrowLeft, 
   Mail, 
@@ -27,7 +28,8 @@ import {
   BarChart3,
   Target,
   Clock,
-  Flame
+  Flame,
+  FileText
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
@@ -43,6 +45,8 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
+import { listenMemberContributionSummary } from '../utils/contributionService';
+import { Skeleton } from '../components/ui/skeleton';
 import { format, differenceInYears } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -52,7 +56,12 @@ const EnhancedMemberProfile = () => {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const { isLeader } = useAuth();
-  const [member, setMember] = useState(null);
+  const { member, loading: memberLoading, error: memberError } = useRealtimeMemberData(memberId);
+  const { contributions, loading: contributionsLoading } = useRealtimeContributions(memberId, {
+    memberCode: member?.memberId,
+    memberName: member?.fullName
+  });
+  const { attendanceRecords, loading: attendanceLoading } = useRealtimeAttendance(memberId, member?.memberId);
   const [attendanceStats, setAttendanceStats] = useState({
     total: 0,
     present: 0,
@@ -62,159 +71,123 @@ const EnhancedMemberProfile = () => {
     lastAttended: null
   });
   const [recentAttendance, setRecentAttendance] = useState([]);
-  const [contributions, setContributions] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [monthlyAttendance, setMonthlyAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [contribSummary, setContribSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState(null);
 
   useEffect(() => {
-    fetchMemberData();
-  }, [memberId]);
-
-  const fetchMemberData = async () => {
-    try {
-      // Fetch member details
-      const memberDoc = await getDoc(doc(db, 'members', memberId));
-      
-      if (!memberDoc.exists()) {
-        toast.error('Member not found');
+    if (memberError) {
+      console.error('Member error:', memberError);
+      if (memberError === 'Member not found') {
         navigate('/members');
-        return;
       }
-
-      const memberData = { id: memberDoc.id, ...memberDoc.data() };
-      setMember(memberData);
-
-      // Fetch all related data
-      await Promise.all([
-        fetchAttendanceStats(memberDoc.id),
-        fetchContributions(memberDoc.id),
-        fetchAchievements(memberDoc.id)
-      ]);
-    } catch (error) {
-      console.error('Error fetching member data:', error);
-      toast.error('Failed to load member profile');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [memberError, navigate]);
 
-  const fetchAttendanceStats = async (memberDocId) => {
-    try {
-      // Get all attendance sessions
-      const sessionsSnapshot = await getDocs(collection(db, 'attendance_sessions'));
-      const sessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+  useEffect(() => {
+    if (member) {
+      calculateAttendanceStats();
+      setRecentAttendance(attendanceRecords.slice(0, 10));
+      fetchAchievements();
+    }
+  }, [member, attendanceRecords]);
 
-      // Get all attendance records for this member
-      const recordsQuery = query(
-        collection(db, 'attendance_records'),
-        where('memberId', '==', memberDocId)
-      );
-      const recordsSnapshot = await getDocs(recordsQuery);
-      const attendanceRecords = recordsSnapshot.docs.map(doc => doc.data());
+  useEffect(() => {
+    setLoading(memberLoading || contributionsLoading || attendanceLoading);
+  }, [memberLoading, contributionsLoading, attendanceLoading]);
 
-      let presentCount = 0;
-      let streak = 0;
-      let currentStreak = 0;
-      let lastAttended = null;
-      const recentRecords = [];
-      const monthlyData = {};
-
-      // Process each session
-      for (const session of sessions) {
-        const wasPresent = attendanceRecords.some(r => r.sessionId === session.id);
-        
-        if (wasPresent) {
-          presentCount++;
-          if (!lastAttended) lastAttended = session.date;
-          currentStreak++;
-        } else {
-          if (currentStreak > streak) streak = currentStreak;
-          currentStreak = 0;
-        }
-
-        // Add to recent records (last 15)
-        if (recentRecords.length < 15) {
-          recentRecords.push({
-            sessionName: session.name || session.sessionName,
-            date: session.date,
-            eventType: session.eventType,
-            present: wasPresent
-          });
-        }
-
-        // Monthly attendance data
-        const monthKey = format(new Date(session.date), 'MMM yyyy');
-        if (!monthlyData[monthKey]) {
-          monthlyData[monthKey] = { month: monthKey, present: 0, total: 0 };
-        }
-        monthlyData[monthKey].total++;
-        if (wasPresent) monthlyData[monthKey].present++;
-      }
-
-      if (currentStreak > streak) streak = currentStreak;
-
-      const totalSessions = sessions.length;
-      const percentage = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
-
-      setAttendanceStats({
-        total: totalSessions,
-        present: presentCount,
-        absent: totalSessions - presentCount,
-        percentage,
-        streak,
-        lastAttended
+  useEffect(() => {
+    let unsub;
+    if (member?.memberId) {
+      setSummaryLoading(true);
+      listenMemberContributionSummary(member.memberId, (s) => {
+        setContribSummary(s);
+        setSummaryLoading(false);
+      }).then((u) => {
+        unsub = u;
       });
-
-      setRecentAttendance(recentRecords);
-      
-      // Convert monthly data to array and sort
-      const monthlyArray = Object.values(monthlyData)
-        .slice(-6)
-        .map(m => ({
-          ...m,
-          rate: m.total > 0 ? Math.round((m.present / m.total) * 100) : 0
-        }));
-      setMonthlyAttendance(monthlyArray);
-    } catch (error) {
-      console.error('Error fetching attendance stats:', error);
     }
-  };
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [member?.memberId]);
 
-  const fetchContributions = async (memberDocId) => {
-    try {
-      const q = query(
-        collection(db, 'contributions'),
-        where('memberId', '==', memberDocId),
-        orderBy('date', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      const contributionsList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+  
+
+  const calculateAttendanceStats = () => {
+    const totalSessions = attendanceRecords.length;
+    const presentCount = attendanceRecords.filter(record => record.present).length;
+    const absentCount = totalSessions - presentCount;
+    const percentage = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
+
+    // Calculate streak
+    let streak = 0;
+    let currentStreak = 0;
+    let lastAttended = null;
+
+    attendanceRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    for (const record of attendanceRecords) {
+      if (record.present) {
+        currentStreak++;
+        if (!lastAttended) lastAttended = record.date;
+      } else {
+        if (currentStreak > streak) streak = currentStreak;
+        currentStreak = 0;
+      }
+    }
+    if (currentStreak > streak) streak = currentStreak;
+
+    // Calculate monthly attendance data
+    const monthlyData = {};
+    attendanceRecords.forEach(record => {
+      const monthKey = format(new Date(record.date), 'MMM yyyy');
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { month: monthKey, present: 0, total: 0 };
+      }
+      monthlyData[monthKey].total++;
+      if (record.present) monthlyData[monthKey].present++;
+    });
+
+    const monthlyArray = Object.values(monthlyData)
+      .slice(-6)
+      .map(m => ({
+        ...m,
+        rate: m.total > 0 ? Math.round((m.present / m.total) * 100) : 0
       }));
-      setContributions(contributionsList.slice(0, 10));
-    } catch (error) {
-      console.error('Error fetching contributions:', error);
-      setContributions([]);
-    }
+
+    setAttendanceStats({
+      total: totalSessions,
+      present: presentCount,
+      absent: absentCount,
+      percentage,
+      streak,
+      lastAttended
+    });
+
+    setMonthlyAttendance(monthlyArray);
   };
 
-  const fetchAchievements = async (memberDocId) => {
+  const fetchAchievements = async () => {
     try {
       const q = query(
         collection(db, 'achievements'),
-        where('memberId', '==', memberDocId),
-        orderBy('dateAwarded', 'desc')
+        where('memberId', '==', member.id)
       );
       const snapshot = await getDocs(q);
       const achievementsList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setAchievements(achievementsList);
+      // Sort client-side by dateAwarded (descending)
+      const sortedAchievements = achievementsList.sort((a, b) => 
+        new Date(b.dateAwarded) - new Date(a.dateAwarded)
+      );
+      setAchievements(sortedAchievements);
     } catch (error) {
       console.error('Error fetching achievements:', error);
       setAchievements([]);
@@ -451,6 +424,52 @@ const EnhancedMemberProfile = () => {
         </div>
       </div>
 
+      {/* Navigation to Detail Pages */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Member Information</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <button
+            onClick={() => navigate(`/members/${memberId}/details`)}
+            className="flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-colors"
+          >
+            <User className="w-8 h-8 text-blue-600 mb-2" />
+            <span className="text-sm font-medium text-blue-900">Details</span>
+          </button>
+          
+          <button
+            onClick={() => navigate(`/members/${memberId}/attendance`)}
+            className="flex flex-col items-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg hover:from-green-100 hover:to-green-200 transition-colors"
+          >
+            <Calendar className="w-8 h-8 text-green-600 mb-2" />
+            <span className="text-sm font-medium text-green-900">Attendance</span>
+          </button>
+          
+          <button
+            onClick={() => navigate(`/members/${memberId}/contributions`)}
+            className="flex flex-col items-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-colors"
+          >
+            <DollarSign className="w-8 h-8 text-purple-600 mb-2" />
+            <span className="text-sm font-medium text-purple-900">Contributions</span>
+          </button>
+          
+          <button
+            onClick={() => navigate(`/members/${memberId}/events`)}
+            className="flex flex-col items-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg hover:from-orange-100 hover:to-orange-200 transition-colors"
+          >
+            <Award className="w-8 h-8 text-orange-600 mb-2" />
+            <span className="text-sm font-medium text-orange-900">Events</span>
+          </button>
+          
+          <button
+            onClick={() => navigate(`/members/${memberId}/notes`)}
+            className="flex flex-col items-center p-4 bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg hover:from-pink-100 hover:to-pink-200 transition-colors"
+          >
+            <FileText className="w-8 h-8 text-pink-600 mb-2" />
+            <span className="text-sm font-medium text-pink-900">Notes</span>
+          </button>
+        </div>
+      </div>
+
       {/* Attendance Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
@@ -542,6 +561,86 @@ const EnhancedMemberProfile = () => {
             </LineChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      
+
+      {/* Contributions Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-live="polite">
+        <div className="card bg-gradient-to-br from-amber-50 to-amber-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-amber-600 font-semibold">Total Contributions</p>
+              <p className="text-2xl font-bold text-amber-900">
+                {summaryLoading || !contribSummary ? '—' : `GH₵${contribSummary.totalAmount.toLocaleString()}`}
+              </p>
+            </div>
+            <DollarSign className="w-10 h-10 text-amber-600 opacity-50" />
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-green-50 to-green-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600 font-semibold">This Month</p>
+              <p className="text-2xl font-bold text-green-900">
+                {summaryLoading || !contribSummary ? '—' : `GH₵${contribSummary.thisMonthAmount.toLocaleString()}`}
+              </p>
+              <p className="text-xs text-green-700">
+                {summaryLoading || !contribSummary ? '' : `Monthly avg: GH₵${contribSummary.monthlyAverage.toFixed(0)}`}
+              </p>
+            </div>
+            <Calendar className="w-10 h-10 text-green-600 opacity-50" />
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-600 font-semibold">Peer Comparison</p>
+              <p className="text-sm text-blue-900">
+                {summaryLoading || !contribSummary ? '—' : `Avg diff: GH₵${(contribSummary.averageAmount - contribSummary.peerAverage.perContribution).toFixed(0)}`}
+              </p>
+              <p className="text-xs text-blue-700">
+                {summaryLoading || !contribSummary ? '' : `Vs monthly peers: GH₵${(contribSummary.monthlyAverage - contribSummary.peerAverage.perMonth).toFixed(0)}`}
+              </p>
+            </div>
+            <Target className="w-10 h-10 text-blue-600 opacity-50" />
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-purple-600 font-semibold">Milestones</p>
+              <p className="text-sm text-purple-900">
+                {summaryLoading || !contribSummary ? '—' : (contribSummary.milestones.map(m => m.label).join(' • ') || 'None')}
+              </p>
+            </div>
+            <Award className="w-10 h-10 text-purple-600 opacity-50" />
+          </div>
+        </div>
+      </div>
+
+      {/* Contribution Trend */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <BarChart3 className="w-5 h-5 mr-2 text-church-gold" />
+          Contribution Trend
+        </h2>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={(contribSummary?.amountTrends || []).map(m => ({ month: m.month, amount: m.amount }))}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="amount" fill="#10B981" name="Amount (GHS)" />
+          </BarChart>
+        </ResponsiveContainer>
+        {summaryError && (
+          <p className="mt-2 text-sm text-red-600">{summaryError}</p>
+        )}
       </div>
 
       {/* Contributions & Achievements Row */}

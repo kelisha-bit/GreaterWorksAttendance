@@ -14,7 +14,10 @@ import {
   Edit2,
   CheckCircle,
   XCircle,
-  TrendingUp
+  TrendingUp,
+  DollarSign,
+  Award,
+  History
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
@@ -31,6 +34,7 @@ const MemberProfile = () => {
     percentage: 0
   });
   const [recentAttendance, setRecentAttendance] = useState([]);
+  const [memberContributions, setMemberContributions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
 
@@ -52,8 +56,11 @@ const MemberProfile = () => {
       const memberData = { id: memberDoc.id, ...memberDoc.data() };
       setMember(memberData);
 
-      // Fetch attendance records
+      // Fetch attendance stats
       await fetchAttendanceStats(memberData.memberId);
+      
+      // Fetch member contributions directly from database
+      await fetchMemberContributions(memberData.memberId, memberData.fullName);
     } catch (error) {
       console.error('Error fetching member data:', error);
       toast.error('Failed to load member profile');
@@ -62,10 +69,56 @@ const MemberProfile = () => {
     }
   };
 
+  const fetchMemberContributions = async (memberIdCode, memberFullName) => {
+    try {
+      // Query contributions by memberId
+      const memberIdQuery = query(
+        collection(db, 'contributions'),
+        where('memberId', '==', memberIdCode),
+        orderBy('date', 'desc')
+      );
+      
+      const memberIdSnapshot = await getDocs(memberIdQuery);
+      const memberContribsById = memberIdSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Also query by memberName to catch any contributions that might be stored by name
+      const memberNameQuery = query(
+        collection(db, 'contributions'),
+        where('memberName', '==', memberFullName),
+        orderBy('date', 'desc')
+      );
+      
+      const memberNameSnapshot = await getDocs(memberNameQuery);
+      const memberContribsByName = memberNameSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Combine and remove duplicates (by document ID)
+      const allContributions = [...memberContribsById, ...memberContribsByName];
+      const uniqueContributions = allContributions.filter((contrib, index, self) =>
+        index === self.findIndex((c) => c.id === contrib.id)
+      );
+
+      // Sort by date (newest first)
+      uniqueContributions.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      setMemberContributions(uniqueContributions);
+    } catch (error) {
+      console.error('Error fetching member contributions:', error);
+      // Don't show error toast for contributions as it's not critical
+    }
+  };
+
   const fetchAttendanceStats = async (memberIdCode) => {
     try {
       // Get all attendance sessions
-      const sessionsSnapshot = await getDocs(collection(db, 'attendance_sessions'));
+      const sessionsSnapshot = await getDocs(
+        query(collection(db, 'attendance_sessions'), orderBy('date', 'desc'))
+      );
       const sessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       let presentCount = 0;
@@ -90,7 +143,7 @@ const MemberProfile = () => {
         // Add to recent records (last 10)
         if (recentRecords.length < 10) {
           recentRecords.push({
-            sessionName: session.sessionName,
+            sessionName: session.name || session.sessionName || 'Unknown Session',
             date: session.date,
             present: wasPresent
           });
@@ -283,6 +336,52 @@ const MemberProfile = () => {
         </div>
       </div>
 
+      {/* Contributions Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card bg-gradient-to-br from-yellow-50 to-yellow-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-600 font-semibold">Total Contributions</p>
+              <p className="text-2xl font-bold text-yellow-900">
+                {memberContributions.reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-yellow-700">GHS</p>
+            </div>
+            <DollarSign className="w-10 h-10 text-yellow-600 opacity-50" />
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-green-50 to-green-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600 font-semibold">This Month</p>
+              <p className="text-2xl font-bold text-green-900">
+                {(() => {
+                  const currentMonth = new Date().toISOString().slice(0, 7);
+                  const monthContributions = memberContributions.filter(c => 
+                    c.date && c.date.startsWith(currentMonth)
+                  );
+                  return monthContributions.reduce((sum, c) => sum + (c.amount || 0), 0).toLocaleString();
+                })()}
+              </p>
+              <p className="text-xs text-green-700">GHS</p>
+            </div>
+            <Award className="w-10 h-10 text-green-600 opacity-50" />
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-600 font-semibold">Contributions Count</p>
+              <p className="text-2xl font-bold text-blue-900">{memberContributions.length}</p>
+              <p className="text-xs text-blue-700">Total gifts</p>
+            </div>
+            <History className="w-10 h-10 text-blue-600 opacity-50" />
+          </div>
+        </div>
+      </div>
+
       {/* Recent Attendance */}
       <div className="card">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Attendance</h2>
@@ -322,6 +421,49 @@ const MemberProfile = () => {
                       <span>Absent</span>
                     </span>
                   )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Contributions History */}
+      <div className="card">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Contributions History</h2>
+        
+        {memberContributions.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <DollarSign className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No contribution records found</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {memberContributions.map((contribution, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">
+                    {contribution.type || 'General Contribution'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {new Date(contribution.date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                  {contribution.paymentMethod && (
+                    <p className="text-xs text-gray-500">Method: {contribution.paymentMethod}</p>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg font-bold text-green-600">
+                    GHS {contribution.amount?.toLocaleString() || 0}
+                  </span>
                 </div>
               </div>
             ))}

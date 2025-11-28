@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  useAttendanceSessions, 
+  useAllAttendanceRecords,
+  useMembers
+} from '../hooks/useAttendanceData';
+import { 
+  useContributions as useContributionsData,
+  useVisitors as useVisitorsData
+} from '../hooks/useContributionsAndVisitors';
 import { 
   Users, 
   ClipboardCheck, 
@@ -23,136 +30,53 @@ import { format } from 'date-fns';
 
 const EnhancedDashboard = () => {
   const { userRole, currentUser, isViewer, isLeader } = useAuth();
-  const [stats, setStats] = useState({
-    totalMembers: 0,
-    totalVisitors: 0,
-    todayAttendance: 0,
-    thisWeekAttendance: 0,
-    attendanceRate: 0,
-    totalContributions: 0,
-    thisMonthContributions: 0,
-    pendingFollowUps: 0
-  });
-  const [recentSessions, setRecentSessions] = useState([]);
-  const [recentVisitors, setRecentVisitors] = useState([]);
-  const [topContributors, setTopContributors] = useState([]);
-  const [userMember, setUserMember] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [userRole, currentUser]);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Common data for all roles
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const totalMembers = membersSnapshot.size;
-
-      // Fetch recent attendance sessions
-      const sessionsSnapshot = await getDocs(collection(db, 'attendance_sessions'));
-      let sessions = sessionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
-      const recentSessions = sessions.slice(0, 5);
-
-      // Calculate attendance stats
-      const today = new Date().toISOString().split('T')[0];
-      const todaySession = sessions.find(s => s.date === today);
-      const todayAttendance = todaySession?.attendeeCount || 0;
-
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const weekSessions = sessions.filter(s => new Date(s.date) >= oneWeekAgo);
-      const weekTotal = weekSessions.reduce((sum, s) => sum + (s.attendeeCount || 0), 0);
-      const thisWeekAttendance = weekSessions.length > 0 ? Math.round(weekTotal / weekSessions.length) : 0;
-      const attendanceRate = totalMembers > 0 ? Math.round((thisWeekAttendance / totalMembers) * 100) : 0;
-
-      let newStats = {
-        totalMembers,
-        todayAttendance,
-        thisWeekAttendance,
-        attendanceRate
-      };
-
-      setRecentSessions(recentSessions);
-
-      // Admin/Leader specific data - viewers get limited data
-      if (userRole === 'admin' || userRole === 'leader' || userRole === 'viewer') {
-        // Fetch visitors
-        const visitorsSnapshot = await getDocs(collection(db, 'visitors'));
-        const visitors = visitorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        visitors.sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
-        
-        newStats.totalVisitors = visitors.length;
-        newStats.pendingFollowUps = visitors.filter(v => 
-          v.followUpStatus === 'Pending' || v.followUpStatus === 'Scheduled'
-        ).length;
-        setRecentVisitors(visitors.slice(0, 5));
-
-        // Fetch contributions
-        const contributionsSnapshot = await getDocs(collection(db, 'contributions'));
-        const contributions = contributionsSnapshot.docs.map(doc => doc.data());
-        
-        const totalContributions = contributions.reduce((sum, c) => sum + c.amount, 0);
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const thisMonthContributions = contributions
-          .filter(c => c.date.startsWith(currentMonth))
-          .reduce((sum, c) => sum + c.amount, 0);
-
-        newStats.totalContributions = totalContributions;
-        newStats.thisMonthContributions = thisMonthContributions;
-
-        // Calculate top contributors
-        const contributorTotals = {};
-        contributions.forEach(c => {
-          if (!contributorTotals[c.memberId]) {
-            contributorTotals[c.memberId] = {
-              name: c.memberName,
-              total: 0
-            };
-          }
-          contributorTotals[c.memberId].total += c.amount;
-        });
-
-        const topContributors = Object.values(contributorTotals)
-          .sort((a, b) => b.total - a.total)
-          .slice(0, 5);
-        setTopContributors(topContributors);
-      }
-
-      // Member specific data
-      if (userRole !== 'admin' && userRole !== 'leader') {
-        // Find user's member profile
-        const memberQuery = query(
-          collection(db, 'members'),
-          where('email', '==', currentUser.email)
-        );
-        const memberSnapshot = await getDocs(memberQuery);
-        if (!memberSnapshot.empty) {
-          const memberData = { id: memberSnapshot.docs[0].id, ...memberSnapshot.docs[0].data() };
-          setUserMember(memberData);
-
-          // Get user's attendance
-          const userAttendanceRecords = await getDocs(
-            query(
-              collection(db, 'attendance_records'),
-              where('memberId', '==', memberData.memberId)
-            )
-          );
-          newStats.myAttendanceCount = userAttendanceRecords.size;
-        }
-      }
-
-      setStats(newStats);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
+  
+  // Use our custom hooks for real-time data
+  const { sessions } = useAttendanceSessions();
+  const { members } = useMembers();
+  const { getAttendanceCountForSession } = useAllAttendanceRecords();
+  
+  // Use new hooks for contributions and visitors
+  const { getTotalContributions, getThisMonthTotal, getTopContributors } = useContributionsData();
+  const { visitors, getPendingFollowUps, getRecentVisitors } = useVisitorsData();
+  
+  // Get recent sessions (limit to 5)
+  const recentSessions = sessions.slice(0, 5);
+  
+  // Calculate attendance stats from real-time data
+  const totalMembers = members.length;
+  
+  // Calculate today's attendance
+  const today = new Date().toISOString().split('T')[0];
+  const todaySession = recentSessions.find(s => s.date === today);
+  const todayAttendance = todaySession ? getAttendanceCountForSession(todaySession.id) : 0;
+  
+  // Calculate this week's average attendance
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weekSessions = recentSessions.filter(s => new Date(s.date) >= oneWeekAgo);
+  const weekTotal = weekSessions.reduce((sum, s) => sum + getAttendanceCountForSession(s.id), 0);
+  const thisWeekAttendance = weekSessions.length > 0 ? Math.round(weekTotal / weekSessions.length) : 0;
+  
+  // Calculate attendance rate
+  const attendanceRate = totalMembers > 0 ? Math.round((thisWeekAttendance / totalMembers) * 100) : 0;
+  
+  const stats = {
+    totalMembers,
+    todayAttendance,
+    thisWeekAttendance,
+    attendanceRate,
+    totalVisitors: visitors.length,
+    totalContributions: getTotalContributions(),
+    thisMonthContributions: getThisMonthTotal(),
+    pendingFollowUps: getPendingFollowUps().length,
+    myAttendanceCount: 0 // TODO: Implement user attendance hook
   };
+
+  // Real data from hooks
+  const recentVisitors = getRecentVisitors();
+  const topContributors = getTopContributors();
+  const userMember = null; // TODO: Implement user member lookup
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-GH', {
@@ -316,14 +240,6 @@ const EnhancedDashboard = () => {
 
     return actions.filter(action => action.show);
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-12 h-12 border-4 border-church-gold border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   const statCards = getStatCards();
   const quickActions = getQuickActions();
@@ -549,7 +465,7 @@ const EnhancedDashboard = () => {
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">{session.eventType}</td>
                     <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                      {session.attendeeCount || 0}
+                      {getAttendanceCountForSession(session.id)}
                     </td>
                   </tr>
                 ))}

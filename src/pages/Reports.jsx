@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { 
+  useAttendanceSessions, 
+  useAllAttendanceRecords,
+  useMembers
+} from '../hooks/useAttendanceData';
 import { 
   BarChart, 
   Bar, 
@@ -24,10 +28,14 @@ import 'jspdf-autotable';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 
 const Reports = () => {
-  const [sessions, setSessions] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { isLeader } = useAuth();
+  
+  // Use our custom hooks for real-time data
+  const { sessions } = useAttendanceSessions();
+  const { members } = useMembers();
+  const { getAttendanceCountForSession } = useAllAttendanceRecords();
+  
+  const [loading, setLoading] = useState(false); // Set to false since hooks handle loading
   const [dateRange, setDateRange] = useState('month');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [stats, setStats] = useState({
@@ -41,49 +49,12 @@ const Reports = () => {
 
   const COLORS = ['#D4AF37', '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
 
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   useEffect(() => {
     if (sessions.length > 0 && members.length > 0) {
       calculateStats();
     }
-  }, [sessions, members, attendanceRecords, dateRange, selectedDepartment]);
-
-  const fetchData = async () => {
-    try {
-      // Fetch sessions
-      const sessionsQuery = query(collection(db, 'attendance_sessions'), orderBy('date', 'desc'));
-      const sessionsSnapshot = await getDocs(sessionsQuery);
-      const sessionsList = sessionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setSessions(sessionsList);
-
-      // Fetch members
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const membersList = membersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMembers(membersList);
-
-      // Fetch all attendance records
-      const recordsSnapshot = await getDocs(collection(db, 'attendance_records'));
-      const recordsList = recordsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setAttendanceRecords(recordsList);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load reports data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [sessions, members, dateRange, selectedDepartment]);
 
   const getFilteredSessions = () => {
     const now = new Date();
@@ -117,7 +88,7 @@ const Reports = () => {
     const filteredMembers = getFilteredMembers();
 
     const totalSessions = filteredSessions.length;
-    const totalAttendance = filteredSessions.reduce((sum, s) => sum + (s.attendeeCount || 0), 0);
+    const totalAttendance = filteredSessions.reduce((sum, s) => sum + getAttendanceCountForSession(s.id), 0);
     const averageAttendance = totalSessions > 0 ? Math.round(totalAttendance / totalSessions) : 0;
     const attendanceRate = filteredMembers.length > 0 ? Math.round((averageAttendance / filteredMembers.length) * 100) : 0;
 
@@ -136,7 +107,7 @@ const Reports = () => {
       .reverse()
       .map(session => ({
         name: format(new Date(session.date), 'MMM dd'),
-        attendance: session.attendeeCount || 0
+        attendance: getAttendanceCountForSession(session.id)
       }));
   };
 
@@ -205,7 +176,7 @@ const Reports = () => {
       session.name,
       session.eventType,
       session.department,
-      session.attendeeCount || 0
+      getAttendanceCountForSession(session.id)
     ]);
     
     doc.autoTable({
@@ -248,7 +219,7 @@ const Reports = () => {
       `"${session.name}"`,
       session.eventType,
       session.department,
-      session.attendeeCount || 0,
+      getAttendanceCountForSession(session.id),
       format(new Date(session.date), 'EEEE')
     ]);
     
@@ -464,7 +435,7 @@ const Reports = () => {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-church-gold">{session.attendeeCount || 0}</p>
+                  <p className="text-2xl font-bold text-church-gold">{getAttendanceCountForSession(session.id)}</p>
                   <p className="text-xs text-gray-600">attendees</p>
                 </div>
               </div>

@@ -9,6 +9,7 @@ const Login = lazy(() => import('./pages/Login'));
 const EnhancedDashboard = lazy(() => import('./pages/EnhancedDashboard'));
 const DepartmentDashboard = lazy(() => import('./pages/DepartmentDashboard'));
 const MyPortal = lazy(() => import('./pages/MyPortal'));
+const MyMinistry = lazy(() => import('./pages/MyMinistry'));
 const Members = lazy(() => import('./pages/Members'));
 const EnhancedMemberProfile = lazy(() => import('./pages/EnhancedMemberProfile'));
 const MemberImport = lazy(() => import('./pages/MemberImport'));
@@ -22,6 +23,10 @@ const Reports = lazy(() => import('./pages/Reports'));
 const AdvancedAnalytics = lazy(() => import('./pages/AdvancedAnalytics'));
 const Contributions = lazy(() => import('./pages/Contributions'));
 const FinancialReports = lazy(() => import('./pages/FinancialReports'));
+const FinanceDashboard = lazy(() => import('./pages/FinanceDashboard'));
+const FinancialAnalytics = lazy(() => import('./pages/FinancialAnalytics'));
+const BudgetManagement = lazy(() => import('./pages/BudgetManagement'));
+const Transactions = lazy(() => import('./pages/Transactions'));
 const BackupManager = lazy(() => import('./pages/BackupManager'));
 const PhotoGallery = lazy(() => import('./pages/PhotoGallery'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -30,11 +35,18 @@ const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 // Ministry Components
 const MinistryDashboard = lazy(() => import('./pages/MinistryDashboard'));
 const MinistryManagement = lazy(() => import('./pages/MinistryManagement'));
+// Member Detail Components
+const MemberDetails = lazy(() => import('./pages/MemberDetails'));
+const MemberAttendance = lazy(() => import('./pages/MemberAttendance'));
+const MemberContributions = lazy(() => import('./pages/MemberContributions'));
+const MemberNotes = lazy(() => import('./pages/MemberNotes'));
+const MemberEvents = lazy(() => import('./pages/MemberEvents'));
 
 // Routes accessible by viewers
 const viewerAllowedRoutes = [
   '/', // Dashboard
   '/my-portal',
+  '/my-ministry',
   '/events',
   '/gallery',
   '/members',
@@ -94,6 +106,7 @@ function AppRoutes() {
           {/* Routes accessible by all authenticated users */}
           <Route index element={<Suspense fallback={<div />}> <EnhancedDashboard /> </Suspense>} />
           <Route path="my-portal" element={<Suspense fallback={<div />}> <MyPortal /> </Suspense>} />
+          <Route path="my-ministry" element={<Suspense fallback={<div />}> <MyMinistry /> </Suspense>} />
           <Route path="events" element={<Suspense fallback={<div />}> <EventCalendar /> </Suspense>} />
           <Route path="gallery" element={<Suspense fallback={<div />}> <PhotoGallery /> </Suspense>} />
           
@@ -151,6 +164,33 @@ function AppRoutes() {
             </PrivateRoute>
           } />
           
+          {/* Member Detail Pages - restricted */}
+          <Route path="members/:memberId/details" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <MemberDetails /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="members/:memberId/attendance" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <MemberAttendance /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="members/:memberId/contributions" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <MemberContributions /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="members/:memberId/notes" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <MemberNotes /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="members/:memberId/events" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <MemberEvents /> </Suspense>
+            </PrivateRoute>
+          } />
+          
           {/* Department Dashboard - Accessible to all authenticated users */}
           <Route path="department-dashboard" element={<Suspense fallback={<div />}> <DepartmentDashboard /> </Suspense>} />
           <Route path="visitors" element={
@@ -196,6 +236,26 @@ function AppRoutes() {
           <Route path="financial-reports" element={
             <PrivateRoute requiredRole="leader">
               <Suspense fallback={<div />}> <FinancialReports /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="finance-dashboard" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <FinanceDashboard /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="financial-analytics" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <FinancialAnalytics /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="budget-management" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <BudgetManagement /> </Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="transactions" element={
+            <PrivateRoute requiredRole="leader">
+              <Suspense fallback={<div />}> <Transactions /> </Suspense>
             </PrivateRoute>
           } />
           <Route path="backup" element={

@@ -11,13 +11,41 @@ import {
   Calendar,
   User,
   TrendingUp,
+  TrendingDown,
   Plus,
   Filter,
   Receipt,
-  Download
+  Download,
+  FileText,
+  BarChart3,
+  PieChart,
+  Activity,
+  Target,
+  ArrowUpRight,
+  ArrowDownRight,
+  Eye,
+  Users,
+  CreditCard,
+  Award,
+  AlertTriangle
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
+import { PieChart as RePieChart, Pie, Cell } from 'recharts';
 import toast from 'react-hot-toast';
 import DonationReceipt from '../components/DonationReceipt';
+import BatchReceiptGenerator from '../components/BatchReceiptGenerator';
 import { generateTypedReceiptNumber } from '../utils/receiptUtils';
 import { exportReceiptAsPDF, exportReceiptWithData, exportMultipleReceipts } from '../utils/pdfExport';
 
@@ -33,15 +61,32 @@ const Contributions = () => {
   const [selectedContribution, setSelectedContribution] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
+  const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedContributionForReceipt, setSelectedContributionForReceipt] = useState(null);
+  const [showBatchGenerator, setShowBatchGenerator] = useState(false);
+  
+  // Enhanced statistics
   const [stats, setStats] = useState({
     totalTithes: 0,
     totalOfferings: 0,
     totalSeeds: 0,
     totalOther: 0,
-    grandTotal: 0
+    grandTotal: 0,
+    averageContribution: 0,
+    topContributor: null,
+    contributionGrowth: 0,
+    totalContributors: 0,
+    monthlyTarget: 10000,
+    monthlyProgress: 0
   });
+
+  // Chart data
+  const [monthlyTrends, setMonthlyTrends] = useState([]);
+  const [typeBreakdown, setTypeBreakdown] = useState([]);
+  const [topContributors, setTopContributors] = useState([]);
+  const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState([]);
 
   const [formData, setFormData] = useState({
     memberId: '',
@@ -55,6 +100,7 @@ const Contributions = () => {
 
   const contributionTypes = ['Tithe', 'Offering', 'Seed', 'Building Fund', 'Mission', 'Other'];
   const paymentMethods = ['Cash', 'Mobile Money', 'Bank Transfer', 'Check', 'Card'];
+  const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899'];
 
   useEffect(() => {
     fetchData();
@@ -62,10 +108,11 @@ const Contributions = () => {
 
   useEffect(() => {
     filterContributions();
-  }, [searchTerm, contributions, filterType, filterMonth]);
+  }, [searchTerm, contributions, filterType, filterMonth, selectedPeriod, filterYear]);
 
   useEffect(() => {
     calculateStats();
+    prepareChartData();
   }, [filteredContributions]);
 
   const fetchData = async () => {
@@ -150,7 +197,6 @@ const Contributions = () => {
   const filterContributions = () => {
     let filtered = [...contributions];
 
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(contrib =>
         contrib.memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -158,14 +204,15 @@ const Contributions = () => {
       );
     }
 
-    // Filter by type
     if (filterType !== 'all') {
       filtered = filtered.filter(contrib => contrib.contributionType === filterType);
     }
 
-    // Filter by month
-    if (filterMonth) {
+    // Apply period-based filtering
+    if (selectedPeriod === 'month' && filterMonth) {
       filtered = filtered.filter(contrib => contrib.date.startsWith(filterMonth));
+    } else if (selectedPeriod === 'year') {
+      filtered = filtered.filter(contrib => contrib.date.startsWith(filterYear));
     }
 
     setFilteredContributions(filtered);
@@ -177,12 +224,38 @@ const Contributions = () => {
       totalOfferings: 0,
       totalSeeds: 0,
       totalOther: 0,
-      grandTotal: 0
+      grandTotal: 0,
+      averageContribution: 0,
+      topContributor: null,
+      contributionGrowth: 0,
+      totalContributors: 0,
+      monthlyTarget: 10000,
+      monthlyProgress: 0
     };
+
+    const contributorTotals = {};
+    const paymentTotals = {};
 
     filteredContributions.forEach(contrib => {
       const amount = parseFloat(contrib.amount) || 0;
       stats.grandTotal += amount;
+
+      // Track contributors
+      if (!contributorTotals[contrib.memberId]) {
+        contributorTotals[contrib.memberId] = {
+          name: contrib.memberName,
+          total: 0,
+          count: 0
+        };
+      }
+      contributorTotals[contrib.memberId].total += amount;
+      contributorTotals[contrib.memberId].count += 1;
+
+      // Track payment methods
+      if (!paymentTotals[contrib.paymentMethod]) {
+        paymentTotals[contrib.paymentMethod] = 0;
+      }
+      paymentTotals[contrib.paymentMethod] += amount;
 
       switch (contrib.contributionType) {
         case 'Tithe':
@@ -199,7 +272,98 @@ const Contributions = () => {
       }
     });
 
+    // Calculate derived stats
+    stats.totalContributors = Object.keys(contributorTotals).length;
+    stats.averageContribution = filteredContributions.length > 0 ? stats.grandTotal / filteredContributions.length : 0;
+    
+    // Find top contributor
+    const topContributor = Object.values(contributorTotals).sort((a, b) => b.total - a.total)[0];
+    stats.topContributor = topContributor || null;
+
+    // Calculate monthly progress
+    stats.monthlyProgress = stats.monthlyTarget > 0 ? (stats.grandTotal / stats.monthlyTarget * 100) : 0;
+
+    // Calculate growth (compare with previous period)
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const previousMonth = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 7);
+    
+    const currentMonthTotal = contributions
+      .filter(c => c.date.startsWith(currentMonth))
+      .reduce((sum, c) => sum + parseFloat(c.amount || 0), 0);
+    
+    const previousMonthTotal = contributions
+      .filter(c => c.date.startsWith(previousMonth))
+      .reduce((sum, c) => sum + parseFloat(c.amount || 0), 0);
+    
+    stats.contributionGrowth = previousMonthTotal > 0 ? 
+      ((currentMonthTotal - previousMonthTotal) / previousMonthTotal * 100) : 0;
+
     setStats(stats);
+    setTopContributors(Object.values(contributorTotals).sort((a, b) => b.total - a.total).slice(0, 10));
+    setPaymentMethodBreakdown(Object.entries(paymentTotals).map(([method, amount]) => ({
+      method,
+      amount,
+      percentage: stats.grandTotal > 0 ? (amount / stats.grandTotal * 100) : 0
+    })));
+  };
+
+  const prepareChartData = () => {
+    // Monthly trends (last 12 months)
+    const monthlyData = {};
+    const last12Months = [];
+    const now = new Date();
+    
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      last12Months.push(key);
+      monthlyData[key] = { tithes: 0, offerings: 0, seeds: 0, other: 0, total: 0 };
+    }
+
+    contributions.forEach(c => {
+      const monthKey = c.date.substring(0, 7);
+      if (monthlyData.hasOwnProperty(monthKey)) {
+        const amount = parseFloat(c.amount || 0);
+        switch (c.contributionType) {
+          case 'Tithe':
+            monthlyData[monthKey].tithes += amount;
+            break;
+          case 'Offering':
+            monthlyData[monthKey].offerings += amount;
+            break;
+          case 'Seed':
+            monthlyData[monthKey].seeds += amount;
+            break;
+          default:
+            monthlyData[monthKey].other += amount;
+        }
+        monthlyData[monthKey].total += amount;
+      }
+    });
+
+    const trendsArray = last12Months.map(key => ({
+      month: key,
+      label: new Date(key + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      ...monthlyData[key]
+    }));
+
+    setMonthlyTrends(trendsArray);
+
+    // Type breakdown for current period
+    const typeData = {
+      'Tithe': stats.totalTithes,
+      'Offering': stats.totalOfferings,
+      'Seed': stats.totalSeeds,
+      'Other': stats.totalOther
+    };
+
+    const typeArray = Object.entries(typeData).map(([type, amount]) => ({
+      type,
+      amount,
+      percentage: stats.grandTotal > 0 ? (amount / stats.grandTotal * 100) : 0
+    })).filter(item => item.amount > 0);
+
+    setTypeBreakdown(typeArray);
   };
 
   const handleSubmit = async (e) => {
@@ -283,6 +447,14 @@ const Contributions = () => {
   const handleCloseReceipt = () => {
     setShowReceipt(false);
     setSelectedContributionForReceipt(null);
+  };
+
+  const handleBatchReceiptGenerator = () => {
+    setShowBatchGenerator(true);
+  };
+
+  const handleCloseBatchGenerator = () => {
+    setShowBatchGenerator(false);
   };
 
   const handlePrintReceipt = () => {
@@ -391,6 +563,20 @@ const Contributions = () => {
     }).format(amount);
   };
 
+  const formatPercent = (value) => {
+    return `${value.toFixed(1)}%`;
+  };
+
+  const getGrowthIcon = (value) => {
+    return value >= 0 ? 
+      <ArrowUpRight className="w-4 h-4 text-green-600" /> : 
+      <ArrowDownRight className="w-4 h-4 text-red-600" />;
+  };
+
+  const getGrowthColor = (value) => {
+    return value >= 0 ? 'text-green-600' : 'text-red-600';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -401,10 +587,14 @@ const Contributions = () => {
 
   if (!isLeader) {
     return (
-      <div className="card text-center py-12">
-        <DollarSign className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-        <p className="text-gray-600">Only administrators and leaders can access financial records.</p>
+      <div className="flex items-center justify-center h-64">
+        <Card className="text-center py-12">
+          <CardContent>
+            <DollarSign className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+            <p className="text-gray-600">Only administrators and leaders can access financial records.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -413,19 +603,30 @@ const Contributions = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Financial Contributions</h1>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Contributions Management</h1>
+          <p className="text-gray-600 mt-1">Track and manage church contributions with advanced analytics</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleBatchReceiptGenerator}
+            className="btn-secondary flex items-center space-x-2"
+            disabled={filteredContributions.length === 0}
+          >
+            <FileText className="w-5 h-5" />
+            <span>Batch Receipts</span>
+          </button>
           <button
             onClick={handleExportAllReceipts}
-            className="btn-secondary flex items-center justify-center space-x-2"
+            className="btn-secondary flex items-center space-x-2"
             disabled={filteredContributions.length === 0}
           >
             <Download className="w-5 h-5" />
-            <span>Export All Receipts</span>
+            <span>Export All</span>
           </button>
           <button
             onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center justify-center space-x-2"
+            className="btn-primary flex items-center space-x-2"
           >
             <Plus className="w-5 h-5" />
             <span>Record Contribution</span>
@@ -433,180 +634,330 @@ const Contributions = () => {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="card bg-gradient-to-br from-green-50 to-green-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-600 font-semibold">Total Tithes</p>
-              <p className="text-2xl font-bold text-green-900">{formatCurrency(stats.totalTithes)}</p>
+      {/* Enhanced Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Total Tithes</p>
+                <p className="text-2xl font-bold text-green-900 mt-1">{formatCurrency(stats.totalTithes)}</p>
+                <div className="flex items-center mt-2 space-x-1">
+                  {getGrowthIcon(stats.contributionGrowth)}
+                  <span className={`text-sm ${getGrowthColor(stats.contributionGrowth)}`}>
+                    {formatPercent(stats.contributionGrowth)} growth
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 bg-green-200 rounded-full">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
             </div>
-            <DollarSign className="w-8 h-8 text-green-600 opacity-50" />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600 font-semibold">Total Offerings</p>
-              <p className="text-2xl font-bold text-blue-900">{formatCurrency(stats.totalOfferings)}</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Total Offerings</p>
+                <p className="text-2xl font-bold text-blue-900 mt-1">{formatCurrency(stats.totalOfferings)}</p>
+                <p className="text-sm text-blue-700 mt-2">{stats.totalContributors} contributors</p>
+              </div>
+              <div className="p-3 bg-blue-200 rounded-full">
+                <TrendingUp className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
-            <DollarSign className="w-8 h-8 text-blue-600 opacity-50" />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-purple-600 font-semibold">Total Seeds</p>
-              <p className="text-2xl font-bold text-purple-900">{formatCurrency(stats.totalSeeds)}</p>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600">Average Contribution</p>
+                <p className="text-2xl font-bold text-purple-900 mt-1">{formatCurrency(stats.averageContribution)}</p>
+                <p className="text-sm text-purple-700 mt-2">Per contribution</p>
+              </div>
+              <div className="p-3 bg-purple-200 rounded-full">
+                <Activity className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
-            <DollarSign className="w-8 h-8 text-purple-600 opacity-50" />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="card bg-gradient-to-br from-orange-50 to-orange-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-orange-600 font-semibold">Other</p>
-              <p className="text-2xl font-bold text-orange-900">{formatCurrency(stats.totalOther)}</p>
+        <Card className="bg-gradient-to-br from-church-gold to-church-darkGold text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold opacity-90">Grand Total</p>
+                <p className="text-2xl font-bold mt-1">{formatCurrency(stats.grandTotal)}</p>
+                <div className="flex items-center mt-2 space-x-1">
+                  <Target className="w-4 h-4 opacity-70" />
+                  <span className="text-sm opacity-80">
+                    {formatPercent(stats.monthlyProgress)} of target
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 bg-white bg-opacity-20 rounded-full">
+                <Award className="w-6 h-6" />
+              </div>
             </div>
-            <DollarSign className="w-8 h-8 text-orange-600 opacity-50" />
-          </div>
-        </div>
-
-        <div className="card bg-gradient-to-br from-church-gold to-church-darkGold text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold opacity-90">Grand Total</p>
-              <p className="text-2xl font-bold">{formatCurrency(stats.grandTotal)}</p>
-            </div>
-            <TrendingUp className="w-8 h-8 opacity-50" />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filters */}
-      <div className="card">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by member name or type..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10"
-            />
-          </div>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <BarChart3 className="w-5 h-5 text-church-gold" />
+              <span>Monthly Trends</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={monthlyTrends}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Legend />
+                <Line type="monotone" dataKey="tithes" stroke="#10b981" strokeWidth={2} />
+                <Line type="monotone" dataKey="offerings" stroke="#3b82f6" strokeWidth={2} />
+                <Line type="monotone" dataKey="seeds" stroke="#8b5cf6" strokeWidth={2} />
+                <Line type="monotone" dataKey="other" stroke="#f59e0b" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-          <div>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="input-field"
-            >
-              <option value="all">All Types</option>
-              {contributionTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <PieChart className="w-5 h-5 text-church-gold" />
+              <span>Contribution Types</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <RePieChart>
+                <Pie
+                  data={typeBreakdown}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ type, percent }) => `${type} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="amount"
+                >
+                  {typeBreakdown.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+              </RePieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Enhanced Filters */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by member name or type..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field pl-10"
+              />
+            </div>
+
+            <div>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="input-field"
+              >
+                <option value="month">Monthly View</option>
+                <option value="year">Yearly View</option>
+              </select>
+            </div>
+
+            {selectedPeriod === 'month' && (
+              <div>
+                <input
+                  type="month"
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                  className="input-field"
+                  placeholder="Filter by month"
+                />
+              </div>
+            )}
+
+            {selectedPeriod === 'year' && (
+              <div>
+                <select
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="input-field"
+                >
+                  {[...Array(5)].map((_, i) => {
+                    const year = new Date().getFullYear() - i;
+                    return <option key={year} value={year}>{year}</option>;
+                  })}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="input-field"
+              >
+                <option value="all">All Types</option>
+                {contributionTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top Contributors */}
+      {topContributors.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-church-gold" />
+              <span>Top Contributors</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {topContributors.slice(0, 5).map((contributor, index) => (
+                <div key={contributor.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                      index === 1 ? 'bg-gray-300 text-gray-700' :
+                      index === 2 ? 'bg-orange-400 text-orange-900' :
+                      'bg-church-lightGold text-church-darkGold'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{contributor.name}</p>
+                      <p className="text-xs text-gray-600">{contributor.count} contributions</p>
+                    </div>
+                  </div>
+                  <p className="font-bold text-green-600">{formatCurrency(contributor.total)}</p>
+                </div>
               ))}
-            </select>
-          </div>
-
-          <div>
-            <input
-              type="month"
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="input-field"
-              placeholder="Filter by month"
-            />
-          </div>
-        </div>
-      </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Contributions List */}
-      <div className="card">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            All Contributions ({filteredContributions.length})
-          </h2>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>All Contributions ({filteredContributions.length})</span>
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <CreditCard className="w-4 h-4" />
+              <span>{paymentMethodBreakdown.length} payment methods</span>
+            </div>
+          </CardTitle>
+        </CardHeader>
 
         {filteredContributions.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <DollarSign className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-lg">No contributions found</p>
-          </div>
+          <CardContent>
+            <div className="text-center py-12 text-gray-500">
+              <DollarSign className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No contributions found</p>
+            </div>
+          </CardContent>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Member</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Amount</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Method</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notes</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredContributions.map((contribution) => (
-                  <tr key={contribution.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {new Date(contribution.date).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                      {contribution.memberName}
-                    </td>
-                    <td className="py-3 px-4 text-sm">
-                      <span className="px-2 py-1 bg-church-lightGold text-church-darkGold rounded-full text-xs">
-                        {contribution.contributionType}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-semibold text-green-600">
-                      {formatCurrency(contribution.amount)}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {contribution.paymentMethod}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {contribution.notes || '-'}
-                    </td>
-                    <td className="py-3 px-4 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleGenerateReceipt(contribution)}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
-                          title="Generate Receipt"
-                        >
-                          <Receipt className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(contribution)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(contribution.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Member</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Amount</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Method</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notes</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredContributions.map((contribution) => (
+                    <tr key={contribution.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {new Date(contribution.date).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                        {contribution.memberName}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        <span className="px-2 py-1 bg-church-lightGold text-church-darkGold rounded-full text-xs">
+                          {contribution.contributionType}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm font-semibold text-green-600">
+                        {formatCurrency(contribution.amount)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {contribution.paymentMethod}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {contribution.notes || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleGenerateReceipt(contribution)}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                            title="Generate Receipt"
+                          >
+                            <Receipt className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(contribution)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(contribution.id)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
         )}
-      </div>
+      </Card>
 
       {/* Add/Edit Contribution Modal */}
       {showModal && (
@@ -722,9 +1073,18 @@ const Contributions = () => {
       {showReceipt && selectedContributionForReceipt && (
         <DonationReceipt
           contribution={selectedContributionForReceipt}
+          receiptNumber={selectedContributionForReceipt.receiptNumber}
           onClose={handleCloseReceipt}
-          onPrint={handlePrintReceipt}
-          onDownload={handleDownloadReceipt}
+          showModal={true}
+        />
+      )}
+
+      {/* Batch Receipt Generator Modal */}
+      {showBatchGenerator && (
+        <BatchReceiptGenerator
+          contributions={filteredContributions}
+          members={members}
+          onClose={handleCloseBatchGenerator}
         />
       )}
     </div>

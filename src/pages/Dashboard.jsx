@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  useAttendanceSessions, 
+  useAllAttendanceRecords,
+  useMembers
+} from '../hooks/useAttendanceData';
 import { 
   Users, 
   ClipboardCheck, 
@@ -16,64 +18,41 @@ import { format } from 'date-fns';
 
 const Dashboard = () => {
   const { isLeader } = useAuth();
-  const [stats, setStats] = useState({
-    totalMembers: 0,
-    todayAttendance: 0,
-    thisWeekAttendance: 0,
-    attendanceRate: 0
+  
+  // Use our custom hooks for real-time data
+  const { sessions } = useAttendanceSessions();
+  const { members } = useMembers();
+  const { getAttendanceCountForSession } = useAllAttendanceRecords();
+  
+  // Get recent sessions (limit to 5)
+  const recentSessions = sessions.slice(0, 5);
+  
+  // Calculate stats from real-time data
+  const totalMembers = members.length;
+  
+  // Calculate today's attendance
+  const today = new Date().toISOString().split('T')[0];
+  const todaySession = recentSessions.find(s => s.date === today);
+  const todayAttendance = todaySession ? getAttendanceCountForSession(todaySession.id) : 0;
+  
+  // Calculate this week's average attendance
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weekSessions = recentSessions.filter(s => {
+    const sessionDate = new Date(s.date);
+    return sessionDate >= oneWeekAgo;
   });
-  const [recentSessions, setRecentSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch total members
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const totalMembers = membersSnapshot.size;
-
-      // Fetch recent attendance sessions
-      const sessionsQuery = query(
-        collection(db, 'attendance_sessions'),
-        orderBy('date', 'desc'),
-        limit(5)
-      );
-      const sessionsSnapshot = await getDocs(sessionsQuery);
-      const sessions = sessionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Calculate today's attendance
-      const today = new Date().toISOString().split('T')[0];
-      const todaySession = sessions.find(s => s.date === today);
-      const todayAttendance = todaySession?.attendeeCount || 0;
-
-      // Calculate this week's average attendance
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const weekSessions = sessions.filter(s => new Date(s.date) >= oneWeekAgo);
-      const weekTotal = weekSessions.reduce((sum, s) => sum + (s.attendeeCount || 0), 0);
-      const thisWeekAttendance = weekSessions.length > 0 ? Math.round(weekTotal / weekSessions.length) : 0;
-
-      // Calculate attendance rate
-      const attendanceRate = totalMembers > 0 ? Math.round((thisWeekAttendance / totalMembers) * 100) : 0;
-
-      setStats({
-        totalMembers,
-        todayAttendance,
-        thisWeekAttendance,
-        attendanceRate
-      });
-      setRecentSessions(sessions);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
+  const weekTotal = weekSessions.reduce((sum, s) => sum + getAttendanceCountForSession(s.id), 0);
+  const thisWeekAttendance = weekSessions.length > 0 ? Math.round(weekTotal / weekSessions.length) : 0;
+  
+  // Calculate attendance rate
+  const attendanceRate = totalMembers > 0 ? Math.round((thisWeekAttendance / totalMembers) * 100) : 0;
+  
+  const stats = {
+    totalMembers,
+    todayAttendance,
+    thisWeekAttendance,
+    attendanceRate
   };
 
   const statCards = [
@@ -138,13 +117,6 @@ const Dashboard = () => {
     }
   ].filter(action => action.show);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-12 h-12 border-4 border-church-gold border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -239,7 +211,7 @@ const Dashboard = () => {
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{session.eventType}</td>
                       <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                        {session.attendeeCount || 0}
+                        {getAttendanceCountForSession(session.id)}
                       </td>
                     </tr>
                   ))}

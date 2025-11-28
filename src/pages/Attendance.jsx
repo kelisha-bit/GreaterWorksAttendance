@@ -1,17 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  collection, 
-  getDocs, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy,
-  doc,
-  updateDoc,
-  getDoc,
-  deleteDoc
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   PlusCircle, 
@@ -32,23 +19,45 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { offlineSyncManager } from '../utils/offlineSync';
+import { 
+  useAttendanceSessions, 
+  useAttendanceRecords, 
+  useMembers, 
+  useAttendanceFilters,
+  useAllAttendanceRecords
+} from '../hooks/useAttendanceData';
 
 const Attendance = () => {
   const { isLeader } = useAuth();
-  const [sessions, setSessions] = useState([]);
-  const [members, setMembers] = useState([]);
+  
+  // Custom hooks for data management
+  const { sessions, loading: sessionsLoading, createSession, deleteSession } = useAttendanceSessions();
+  const { members, loading: membersLoading, getMemberById } = useMembers();
+  const { getAttendanceCountForSession } = useAllAttendanceRecords();
+  
+  // State management
   const [selectedSession, setSelectedSession] = useState(null);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMarkModal, setShowMarkModal] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
-  const [loading, setLoading] = useState(true);
   const scannerRef = useRef(null);
+  
+  // Attendance records for selected session
+  const { records: attendanceRecords, loading: recordsLoading, markAttendance } = useAttendanceRecords(selectedSession?.id);
+  
+  // Filters
+  const {
+    searchTerm,
+    setSearchTerm,
+    filterDepartment,
+    setFilterDepartment,
+    departments,
+    getFilteredMembers,
+    isPresent,
+    getPresentMembers
+  } = useAttendanceFilters(members, attendanceRecords);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -56,6 +65,8 @@ const Attendance = () => {
     eventType: 'Sunday Service',
     department: 'All'
   });
+
+  const loading = sessionsLoading || membersLoading;
 
   const eventTypes = [
     'Sunday Service',
@@ -74,34 +85,6 @@ const Attendance = () => {
     
   ];
 
-  const departments = [
-    'All',
-    'Choir',
-    'Music Team',
-    'Ushering and Welcome Team',
-    'Financial team',
-    'Media',
-    'Children Ministry',
-    'Youth Ministry',
-    'Women Ministry',
-    'Men Ministry',
-    'Evangelism Team',
-    'Follow Up Team',
-    'Prayer Team',
-    'Welfare',
-    'Protocol',
-    'Other'
-  ];
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedSession) {
-      fetchAttendanceRecords(selectedSession.id);
-    }
-  }, [selectedSession]);
 
   useEffect(() => {
     return () => {
@@ -111,52 +94,6 @@ const Attendance = () => {
     };
   }, []);
 
-  const fetchData = async () => {
-    try {
-      // Fetch sessions
-      const sessionsQuery = query(
-        collection(db, 'attendance_sessions'),
-        orderBy('date', 'desc')
-      );
-      const sessionsSnapshot = await getDocs(sessionsQuery);
-      const sessionsList = sessionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setSessions(sessionsList);
-
-      // Fetch members
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const membersList = membersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMembers(membersList);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAttendanceRecords = async (sessionId) => {
-    try {
-      const q = query(
-        collection(db, 'attendance_records'),
-        where('sessionId', '==', sessionId)
-      );
-      const snapshot = await getDocs(q);
-      const records = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setAttendanceRecords(records);
-    } catch (error) {
-      console.error('Error fetching attendance records:', error);
-      toast.error('Failed to load attendance records');
-    }
-  };
 
   const handleCreateSession = async (e) => {
     e.preventDefault();
@@ -167,18 +104,7 @@ const Attendance = () => {
     }
 
     try {
-      const sessionData = {
-        name: formData.name,
-        date: formData.date,
-        eventType: formData.eventType,
-        department: formData.department,
-        attendeeCount: 0,
-        createdAt: new Date().toISOString()
-      };
-
-      await addDoc(collection(db, 'attendance_sessions'), sessionData);
-      toast.success('Session created successfully');
-      fetchData();
+      await createSession(formData);
       setShowCreateModal(false);
       setFormData({
         name: '',
@@ -187,70 +113,10 @@ const Attendance = () => {
         department: 'All'
       });
     } catch (error) {
-      console.error('Error creating session:', error);
-      toast.error('Failed to create session');
+      // Error handling is done in the hook
     }
   };
 
-  const markAttendance = async (memberId) => {
-    if (!selectedSession) {
-      toast.error('Please select a session first');
-      return;
-    }
-
-    try {
-      // Get member data first
-      const member = members.find(m => m.id === memberId);
-      if (!member) {
-        toast.error('Member not found');
-        return;
-      }
-
-      // Check if already marked
-      const existing = attendanceRecords.find(r => r.memberId === member.memberId);
-      if (existing) {
-        toast.error('Member already marked present');
-        return;
-      }
-
-      // Use offline sync manager to save (handles online/offline automatically)
-      const result = await offlineSyncManager.saveAttendanceRecord(
-        selectedSession.id,
-        member.memberId, // Use the member's memberId field, not document ID
-        member
-      );
-
-      if (result.success) {
-        // Update local state optimistically
-        const newRecord = {
-          id: Date.now().toString(),
-          sessionId: selectedSession.id,
-          memberId: member.memberId, // Use the member's memberId field, not document ID
-          markedAt: new Date().toISOString()
-        };
-        
-        setAttendanceRecords([...attendanceRecords, newRecord]);
-        
-        // Update local session data
-        const updatedSession = { 
-          ...selectedSession, 
-          attendeeCount: (selectedSession.attendeeCount || 0) + 1 
-        };
-        setSelectedSession(updatedSession);
-        setSessions(sessions.map(s => s.id === selectedSession.id ? updatedSession : s));
-
-        // If online, refresh from server to get accurate data
-        if (result.online) {
-          setTimeout(() => {
-            fetchAttendanceRecords(selectedSession.id);
-          }, 500);
-        }
-      }
-    } catch (error) {
-      console.error('Error marking attendance:', error);
-      toast.error('Failed to mark attendance');
-    }
-  };
 
   const initQRScanner = () => {
     setShowQRScanner(true);
@@ -264,9 +130,9 @@ const Attendance = () => {
       scanner.render(
         (decodedText) => {
           // Find member by ID
-          const member = members.find(m => m.memberId === decodedText);
+          const member = getMemberById(decodedText);
           if (member) {
-            markAttendance(member.id);
+            markAttendance(member.memberId);
             scanner.clear();
             setShowQRScanner(false);
           } else {
@@ -289,30 +155,6 @@ const Attendance = () => {
     setShowQRScanner(false);
   };
 
-  const getFilteredMembers = () => {
-    let filtered = members;
-
-    if (searchTerm) {
-      filtered = filtered.filter(m =>
-        m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.memberId.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filterDepartment && filterDepartment !== 'All') {
-      filtered = filtered.filter(m =>
-        Array.isArray(m.department)
-          ? m.department.includes(filterDepartment)
-          : m.department === filterDepartment
-      );
-    }
-
-    return filtered;
-  };
-
-  const isPresent = (member) => {
-    return attendanceRecords.some(r => r.memberId === member.memberId);
-  };
 
   const exportSessionToPDF = () => {
     if (!selectedSession) {
@@ -332,11 +174,11 @@ const Attendance = () => {
     doc.text(`Date: ${format(new Date(selectedSession.date), 'MMMM dd, yyyy')}`, 14, 37);
     doc.text(`Event Type: ${selectedSession.eventType}`, 14, 44);
     doc.text(`Department: ${selectedSession.department}`, 14, 51);
-    doc.text(`Total Attendees: ${selectedSession.attendeeCount || 0}`, 14, 58);
+    doc.text(`Total Attendees: ${attendanceRecords.length || 0}`, 14, 58);
     doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 14, 65);
     
     // Get present members
-    const presentMembers = members.filter(m => isPresent(m));
+    const presentMembers = getPresentMembers();
     
     // Attendance table
     const tableData = presentMembers.map((member, index) => [
@@ -367,7 +209,7 @@ const Attendance = () => {
       return;
     }
 
-    const presentMembers = members.filter(m => isPresent(m));
+    const presentMembers = getPresentMembers();
     
     const headers = ['Member ID', 'Full Name', 'Department', 'Phone Number', 'Email', 'Membership Type', 'Status'];
     const rows = presentMembers.map(member => [
@@ -384,7 +226,7 @@ const Attendance = () => {
       `Session: ${selectedSession.name}`,
       `Date: ${selectedSession.date}`,
       `Event Type: ${selectedSession.eventType}`,
-      `Total Attendees: ${selectedSession.attendeeCount || 0}`,
+      `Total Attendees: ${attendanceRecords.length || 0}`,
       '',
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
@@ -404,25 +246,7 @@ const Attendance = () => {
     if (!sessionToDelete) return;
 
     try {
-      // Delete all attendance records for this session
-      const recordsQuery = query(
-        collection(db, 'attendance_records'),
-        where('sessionId', '==', sessionToDelete.id)
-      );
-      const recordsSnapshot = await getDocs(recordsQuery);
-      
-      const deletePromises = recordsSnapshot.docs.map(doc => 
-        deleteDoc(doc.ref)
-      );
-      await Promise.all(deletePromises);
-
-      // Delete the session itself
-      await deleteDoc(doc(db, 'attendance_sessions', sessionToDelete.id));
-
-      toast.success('Session and all associated records deleted successfully');
-      
-      // Update local state
-      setSessions(sessions.filter(s => s.id !== sessionToDelete.id));
+      await deleteSession(sessionToDelete.id);
       
       // Clear selected session if it was deleted
       if (selectedSession?.id === sessionToDelete.id) {
@@ -434,8 +258,7 @@ const Attendance = () => {
       setShowDeleteModal(false);
       setSessionToDelete(null);
     } catch (error) {
-      console.error('Error deleting session:', error);
-      toast.error('Failed to delete session');
+      // Error handling is done in the hook
     }
   };
 
@@ -520,7 +343,7 @@ const Attendance = () => {
                   </p>
                   <p className="flex items-center">
                     <Users className="w-4 h-4 mr-2" />
-                    {session.attendeeCount || 0} attendees
+                    {getAttendanceCountForSession(session.id)} attendees
                   </p>
                   <p className="text-xs bg-gray-100 px-2 py-1 rounded inline-block">
                     {session.eventType}
@@ -616,16 +439,16 @@ const Attendance = () => {
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">{selectedSession.name}</h2>
                   <p className="text-sm text-gray-600">
-                    {format(new Date(selectedSession.date), 'MMMM dd, yyyy')} • {selectedSession.attendeeCount || 0} present
+                    {format(new Date(selectedSession.date), 'MMMM dd, yyyy')} • {attendanceRecords.length || 0} present
                   </p>
                 </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => offlineSyncManager.manualSync()}
+                  onClick={() => window.location.reload()}
                   className="btn-secondary flex items-center space-x-2 text-sm"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  <span>Sync now</span>
+                  <span>Refresh</span>
                 </button>
                 <button onClick={() => setShowMarkModal(false)} className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
@@ -729,7 +552,7 @@ const Attendance = () => {
                       </div>
                       {isLeader && (
                         <button
-                          onClick={() => markAttendance(member.id)}
+                          onClick={() => markAttendance(member.memberId)}
                           disabled={present}
                           className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                             present
@@ -773,7 +596,7 @@ const Attendance = () => {
                       {format(new Date(sessionToDelete.date), 'MMMM dd, yyyy')}
                     </p>
                     <p className="text-gray-600">
-                      {sessionToDelete.attendeeCount || 0} attendance record(s)
+                      {getAttendanceCountForSession(sessionToDelete.id)} attendance record(s)
                     </p>
                   </div>
                   <p className="text-sm text-red-600 mt-3">

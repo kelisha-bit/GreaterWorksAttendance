@@ -21,7 +21,10 @@ import {
   HardDrive,
   Image,
   Calendar,
-  Shield
+  Shield,
+  DollarSign,
+  PieChart,
+  Target
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -44,6 +47,7 @@ const Layout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'My Portal', href: '/my-portal', icon: UserCircle },
+    { name: 'My Ministry', href: '/my-ministry', icon: Target },
     { name: 'My Department', href: '/department-dashboard', icon: Briefcase },
     { 
       name: 'Ministries', 
@@ -62,8 +66,19 @@ const Layout = () => {
     { name: 'Attendance', href: '/attendance', icon: ClipboardCheck },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Advanced Analytics', href: '/analytics', icon: TrendingUp },
+    { 
+      name: 'Finance Management', 
+      icon: DollarSign,
+      leaderOnly: true,
+      items: [
+        { name: 'Finance Dashboard', href: '/finance-dashboard' },
+        { name: 'Financial Analytics', href: '/financial-analytics' },
+        { name: 'Budget Management', href: '/budget-management' },
+        { name: 'Transactions', href: '/transactions' },
+        { name: 'Financial Reports', href: '/financial-reports' }
+      ]
+    },
     { name: 'Contributions', href: '/contributions', icon: Wallet, leaderOnly: true },
-    { name: 'Financial Reports', href: '/financial-reports', icon: TrendingUp, leaderOnly: true },
     { name: 'Backup & Data', href: '/backup', icon: HardDrive, adminOnly: true },
     { name: 'User Roles', href: '/user-roles', icon: Shield, adminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings },
